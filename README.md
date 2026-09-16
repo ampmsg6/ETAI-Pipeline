@@ -1,4 +1,6 @@
 # Baseline Predictive Pipeline -- ETAI
+Antonio Gonçalves 20260536
+The best current model is the logistic regression. Logistic Regression outperforms Decision Tree with higher test accuracy (~68% vs ~63%) and a better recidivism call (60% vs 49%) since it generalizes reliably to unseen data instead of heavily overfitting the training set.
 
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
