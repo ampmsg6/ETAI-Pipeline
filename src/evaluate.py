@@ -38,7 +38,8 @@ def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: s
     df = extras_test.copy()
     df["y_true"] = y_test.values
     df["y_pred_model"] = y_pred
-    df["y_pred_compas"] = (df["score_text"] != "Low").astype(int)
+    # An unknown COMPAS score must not silently count as high risk.
+    df["y_pred_compas"] = df["score_text"].map({"Low": 0, "Medium": 1, "High": 1})
 
     lines = [
         "False positive rate by race",
@@ -48,7 +49,7 @@ def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: s
 
     for label, col in [("Our model", "y_pred_model"), ("COMPAS's own score", "y_pred_compas")]:
         lines.append(f"  {label}:")
-        for group, g in df.groupby(sensitive_attr):
+        for group, g in df.dropna(subset=[sensitive_attr, col]).groupby(sensitive_attr):
             negatives = g[g["y_true"] == 0]
             if len(negatives) == 0:
                 continue

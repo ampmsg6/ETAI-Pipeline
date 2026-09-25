@@ -1,0 +1,206 @@
+{
+  "raw_rows": 7286,
+  "rows_after_cleaning": 7214,
+  "duplicates": {
+    "exact_rows": 72,
+    "repeated_ids": 72,
+    "ids_with_conflicting_records": 0
+  },
+  "invalid_numeric_values": {
+    "age": 8,
+    "decile_score": 6,
+    "juv_fel_count": 5,
+    "juv_misd_count": 0,
+    "juv_other_count": 0,
+    "priors_count": 6
+  },
+  "recovered_juvenile_felony_counts": 216,
+  "inconsistent_age_cat": 6,
+  "inconsistent_score_text": 10,
+  "missing_after_cleaning": {
+    "score_text": 6,
+    "priors_count": 503,
+    "sex": 108,
+    "c_charge_degree": 229,
+    "juv_fel_count": 5,
+    "race": 144,
+    "age": 151,
+    "decile_score": 6
+  },
+  "missingness_associations": {
+    "age": [
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.034741868145650896,
+        "p_value": 0.004750270053142804,
+        "n": 7208
+      },
+      {
+        "predictor": "sex",
+        "cramers_v": 0.0,
+        "p_value": 0.4566033502932926,
+        "n": 7106
+      },
+      {
+        "predictor": "race",
+        "cramers_v": 0.0,
+        "p_value": 0.6521020540509135,
+        "n": 7070
+      },
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.0,
+        "p_value": 0.821260692243681,
+        "n": 7214
+      },
+      {
+        "predictor": "c_charge_degree",
+        "cramers_v": 0.0,
+        "p_value": 0.5317918231793537,
+        "n": 6985
+      }
+    ],
+    "juv_fel_count": [
+      {
+        "predictor": "sex",
+        "cramers_v": 0.0,
+        "p_value": 0.598320935276448,
+        "n": 7106
+      },
+      {
+        "predictor": "race",
+        "cramers_v": 0.0,
+        "p_value": 0.9279373748198387,
+        "n": 7070
+      },
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.0,
+        "p_value": 0.9903945023668759,
+        "n": 7214
+      },
+      {
+        "predictor": "c_charge_degree",
+        "cramers_v": 0.0,
+        "p_value": 0.7924553935318934,
+        "n": 6985
+      },
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.0,
+        "p_value": 0.9442256284993701,
+        "n": 7208
+      }
+    ],
+    "priors_count": [
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.36084759853563747,
+        "p_value": 4.153209015883207e-205,
+        "n": 7214
+      },
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.07433020861822735,
+        "p_value": 8.301593148089915e-10,
+        "n": 7208
+      },
+      {
+        "predictor": "race",
+        "cramers_v": 0.04741647953646449,
+        "p_value": 0.0008482378511594117,
+        "n": 7070
+      },
+      {
+        "predictor": "c_charge_degree",
+        "cramers_v": 0.026039010681498498,
+        "p_value": 0.01662528554835073,
+        "n": 6985
+      },
+      {
+        "predictor": "sex",
+        "cramers_v": 0.0,
+        "p_value": 0.35719804024392454,
+        "n": 7106
+      }
+    ],
+    "c_charge_degree": [
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.3487639837707386,
+        "p_value": 1.1187897786439574e-191,
+        "n": 7214
+      },
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.08204652956848411,
+        "p_value": 1.073428969760627e-11,
+        "n": 7208
+      },
+      {
+        "predictor": "race",
+        "cramers_v": 0.05902233057413485,
+        "p_value": 1.746690613192556e-05,
+        "n": 7070
+      },
+      {
+        "predictor": "sex",
+        "cramers_v": 0.0,
+        "p_value": 0.3819484022078957,
+        "n": 7106
+      }
+    ],
+    "race": [
+      {
+        "predictor": "sex",
+        "cramers_v": 0.0,
+        "p_value": 0.6825773366454899,
+        "n": 7106
+      },
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.0,
+        "p_value": 0.5929618436491045,
+        "n": 7214
+      },
+      {
+        "predictor": "c_charge_degree",
+        "cramers_v": 0.0,
+        "p_value": 1.0,
+        "n": 6985
+      },
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.0,
+        "p_value": 0.4461517829855277,
+        "n": 7208
+      }
+    ],
+    "sex": [
+      {
+        "predictor": "c_charge_degree",
+        "cramers_v": 0.003586721437113786,
+        "p_value": 0.29647356987813,
+        "n": 6985
+      },
+      {
+        "predictor": "race",
+        "cramers_v": 0.0,
+        "p_value": 0.9342323485306057,
+        "n": 7070
+      },
+      {
+        "predictor": "age_cat",
+        "cramers_v": 0.0,
+        "p_value": 0.6303706906357971,
+        "n": 7214
+      },
+      {
+        "predictor": "score_text",
+        "cramers_v": 0.0,
+        "p_value": 0.7005883491821298,
+        "n": 7208
+      }
+    ]
+  }
+}

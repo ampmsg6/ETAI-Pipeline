@@ -21,6 +21,8 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
     header = (
         f"Run: {timestamp}\n"
         f"Model: {config['model']['type']}  params={config['model']['params']}\n"
+        f"Preprocessing: {config['preprocessing']['numeric_imputer']} imputer, "
+        f"{config['preprocessing']['encoder']} encoder, {config['preprocessing']['scaler']} scaler\n"
         f"Test size: {config['split']['test_size']}  "
         f"random_state: {config['split']['random_state']}\n"
         + "=" * 60 + "\n\n"
