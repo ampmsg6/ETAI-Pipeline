@@ -1,6 +1,8 @@
-"""Evaluation -- single train/test split, no cross-validation (yet)."""
+"""Holdout and cross-validation reports for the complete model pipeline."""
+import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import cross_validate
 
 
 def evaluate(y_train, y_train_pred, y_test, y_pred) -> str:
@@ -25,7 +27,51 @@ def evaluate(y_train, y_train_pred, y_test, y_pred) -> str:
     return text
 
 
-def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: str = "race") -> str:
+def cross_validate_pipeline(pipeline, X, y, cv, scoring="accuracy", n_jobs=1):
+    """Score the whole pipeline and predict each row from its held-out fold."""
+    scores = cross_validate(
+        pipeline, X, y, cv=cv, scoring=scoring, n_jobs=n_jobs,
+        return_train_score=True, return_estimator=True, return_indices=True,
+    )
+    folds = pd.DataFrame({
+        "fold": range(1, len(scores["test_score"]) + 1),
+        "train": scores["train_score"],
+        "validation": scores["test_score"],
+    })
+    folds["gap"] = folds["train"] - folds["validation"]
+    y_oof = np.empty(len(X), dtype=np.asarray(y).dtype)
+    for model, val_idx in zip(scores["estimator"], scores["indices"]["test"]):
+        y_oof[val_idx] = model.predict(X.iloc[val_idx])
+    return folds, y_oof
+
+
+def cv_report(folds, scoring="accuracy"):
+    """Report each fold and the spread of train, validation and gap scores."""
+    lines = [
+        f"Cross-validation ({len(folds)} stratified folds, metric: {scoring})",
+        "",
+        folds.to_string(index=False, float_format=lambda value: f"{value:.3f}"),
+        "",
+    ]
+    for column in ("train", "validation", "gap"):
+        lines.append(
+            f"{column.capitalize():<11s} mean = {folds[column].mean():.3f}   "
+            f"std = {folds[column].std(ddof=1):.3f}"
+        )
+    text = "\n".join(lines)
+    print(text)
+    return text
+
+
+def oof_classification_report(y_true, y_pred):
+    text = "Classification report (out-of-fold, development set):\n" + classification_report(
+        y_true, y_pred, zero_division=0
+    )
+    print(text)
+    return text
+
+
+def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: str = "race", dataset_label="test set") -> str:
     """
     Deliberately simple fairness check -- not a substitute for a real audit, just enough to show that "accuracy" and "fair" are not the same thing.
 
@@ -42,7 +88,7 @@ def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: s
     df["y_pred_compas"] = df["score_text"].map({"Low": 0, "Medium": 1, "High": 1})
 
     lines = [
-        "False positive rate by race",
+        f"False positive rate by race ({dataset_label})",
         "(share of people who did NOT reoffend, but were predicted to)",
         "",
     ]

@@ -10,7 +10,7 @@ from src.data_diagnostics import (
     find_duplicates, flag_invalid_values, inconsistent_age_category,
     inconsistent_score_category, test_missingness_mechanism,
 )
-from src.preprocessing import clean_dataset
+from src.preprocessing import clean_dataset, drop_duplicate_rows
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     values = unique["score_text"].astype("string").str.strip()
     unique["score_text"] = values.str.lower().map(config["data"]["canonical_maps"]["score_text"]).fillna(values)
     invalid = flag_invalid_values(unique, config["diagnostics"]["validity_rules"])[1]
-    clean = clean_dataset(raw, config)
+    clean = drop_duplicate_rows(clean_dataset(raw, config), config["diagnostics"]["id_column"])
     recovered_juvenile = int((unique["juv_fel_count"].isna() & clean.loc[unique.index, "juv_fel_count"].notna()).sum())
     results = {
         "raw_rows": len(raw),

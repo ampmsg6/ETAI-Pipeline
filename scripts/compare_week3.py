@@ -11,7 +11,7 @@ from sklearn.pipeline import Pipeline
 from main import load_config
 from src.data import load_data
 from src.model import build_model
-from src.preprocessing import build_preprocessor, clean_dataset, split_features_target, split_train_test
+from src.preprocessing import build_preprocessor, clean_dataset, drop_duplicate_rows, split_features_target, split_train_test
 
 
 def score(model, X_train, y_train, X_test, y_test):
@@ -39,7 +39,7 @@ def main():
     config = load_config()
     raw = load_data(config["data"]["path"])
     id_column = config["diagnostics"]["id_column"]
-    clean = clean_dataset(raw, config)
+    clean = drop_duplicate_rows(clean_dataset(raw, config), id_column)
     X, y, extras = split_features_target(clean, config)
     X_train, X_test, y_train, y_test, _, _ = split_train_test(
         X, y, extras,

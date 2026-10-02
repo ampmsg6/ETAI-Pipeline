@@ -52,10 +52,12 @@ def recover_juvenile_felony_count(df):
 
 
 def clean_dataset(df, config):
-    """Apply fixed rules; no statistics are fitted from test rows."""
-    # Drop only records that are identical in every raw column. A repeated
-    # identifier with different case facts is retained for investigation.
-    out = df.drop_duplicates().copy()
+    """Apply fixed rules without changing the number or order of rows.
+
+    The same cleaning can therefore be used on unlabelled prediction data,
+    where every input row must receive a prediction.
+    """
+    out = df.copy()
     placeholders = {str(value).strip().lower() for value in config["data"]["placeholder_tokens"]}
     for column in config["data"]["numeric_columns"]:
         if column in out:
@@ -89,6 +91,18 @@ def clean_dataset(df, config):
     return out.drop(columns=config["data"]["redundant_columns"], errors="ignore")
 
 
+def drop_duplicate_rows(df, id_column=None):
+    """Remove exact copies from labelled data before the dev/test split.
+
+    A repeated id with different case facts is ambiguous: do not silently
+    discard a record merely because its identifier matches another one.
+    """
+    out = df.drop_duplicates().copy()
+    if id_column in out and out[id_column].duplicated().any():
+        raise ValueError(f"Conflicting records share {id_column}; inspect them before splitting")
+    return out
+
+
 def add_missingness_indicators(df, config):
     out = df.copy()
     for column, plan in config["preprocessing"]["imputation"].items():
@@ -119,6 +133,11 @@ def split_train_test(X, y, extras, test_size, random_state):
     return train_test_split(
         X, y, extras, test_size=test_size, random_state=random_state, stratify=y
     )
+
+
+def split_dev_test(X, y, extras, test_size, random_state):
+    """Reserve a stratified test set, aligned with features and audit fields."""
+    return split_train_test(X, y, extras, test_size, random_state)
 
 
 def build_preprocessor(config):

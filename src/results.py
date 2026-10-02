@@ -1,7 +1,9 @@
 """
 Saving each run's results to disk.
 
-Printing to the terminal is fine while you're watching it happen, but it's gone the moment you scroll past it or close the window. This module writes the full report (accuracy, classification report, fairness table) to a timestamped file in `results/` instead, so youcan open it again later, or compare two runs side by side after changing something in config.yaml.
+This module writes the holdout and cross-validation report, classification
+results, and fairness table to a timestamped file in `results/` so runs can be
+compared after changing `config.yaml`.
 """
 import os
 from datetime import datetime
@@ -20,11 +22,13 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
 
     header = (
         f"Run: {timestamp}\n"
-        f"Model: {config['model']['type']}  params={config['model']['params']}\n"
+        f"Model: {config['model']['type']}  params={config['model'].get('params', {})}\n"
         f"Preprocessing: {config['preprocessing']['numeric_imputer']} imputer, "
         f"{config['preprocessing']['encoder']} encoder, {config['preprocessing']['scaler']} scaler\n"
-        f"Test size: {config['split']['test_size']}  "
-        f"random_state: {config['split']['random_state']}\n"
+        f"Reserved test size: {config['test_set']['size']}  "
+        f"random_state: {config['test_set']['random_state']}\n"
+        f"CV: {config['cv']['n_splits']} folds, scoring={config['cv']['scoring']}, "
+        f"random_state={config['cv']['random_state']}\n"
         + "=" * 60 + "\n\n"
     )
 

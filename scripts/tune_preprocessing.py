@@ -11,12 +11,15 @@ from sklearn.pipeline import Pipeline
 
 from main import load_config
 from src.data import load_data
-from src.preprocessing import build_preprocessor, clean_dataset, split_features_target, split_train_test
+from src.preprocessing import build_preprocessor, clean_dataset, drop_duplicate_rows, split_features_target, split_train_test
 
 
 def main():
     config = load_config()
-    df = clean_dataset(load_data(config["data"]["path"]), config)
+    df = drop_duplicate_rows(
+        clean_dataset(load_data(config["data"]["path"]), config),
+        config["diagnostics"]["id_column"],
+    )
     X, y, extras = split_features_target(df, config)
     X_train, _, y_train, _, _, _ = split_train_test(
         X, y, extras,
