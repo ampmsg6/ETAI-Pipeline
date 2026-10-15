@@ -1,4 +1,4 @@
-# Week 4 recipe. Learned preprocessing is fitted within each training fold.
+# Weeks 5-6. Learned preprocessing is fitted within every inner/outer training fold.
 data:
   path: "data/compas_two_year_recidivism.csv"
   target: "two_year_recid"
@@ -31,6 +31,7 @@ diagnostics:
     priors_count: {min: 0, max: 60}
 
 preprocessing:
+  engineered_features: [] # Challenge 1: select explicitly or use main.py --features
   encoder: "target"  # onehot, ordinal, count, target
   scaler: "robust" # none, standard, minmax, robust
   numeric_imputer: "median" # median, knn, constant
@@ -63,7 +64,36 @@ cv:
 
 model:
   type: "random_forest"
-  params: {n_estimators: 100, min_samples_leaf: 5, random_state: 42, n_jobs: 1}
+  params: {n_estimators: 200, random_state: 42, n_jobs: -1}
+  # decision_tree: {random_state: 42}
+  # logistic_regression: {max_iter: 2000}
+  # oblique_random_forest: {n_estimators: 200, n_components: 10, random_state: 42, n_jobs: -1}
+  # adaboost: {max_depth: 1, n_estimators: 200, learning_rate: 1.0, random_state: 42}
+
+tuning:
+  enabled: true
+  n_trials: 30
+  n_splits: 5
+  random_state: 42
+  search_spaces:
+    logistic_regression:
+      model__C: {type: float, low: 0.0001, high: 100, log: true}
+    decision_tree:
+      model__max_depth: {type: int, low: 1, high: 20}
+      model__min_samples_leaf: {type: int, low: 1, high: 200, log: true}
+      model__criterion: {type: categorical, choices: ["gini", "entropy"]}
+    random_forest:
+      model__max_depth: {type: int, low: 2, high: 30}
+      model__min_samples_leaf: {type: int, low: 1, high: 200, log: true}
+      model__max_features: {type: categorical, choices: ["sqrt", 0.5, 1.0]}
+    oblique_random_forest:
+      model__estimator__tree__max_depth: {type: int, low: 2, high: 30}
+      model__estimator__tree__min_samples_leaf: {type: int, low: 1, high: 200, log: true}
+      model__estimator__project__n_components: {type: int, low: 3, high: 10}
+    adaboost:
+      model__estimator__max_depth: {type: int, low: 1, high: 8}
+      model__n_estimators: {type: int, low: 25, high: 400, log: true}
+      model__learning_rate: {type: float, low: 0.01, high: 1.0, log: true}
 
 output:
   results_dir: "results"

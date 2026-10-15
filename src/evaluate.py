@@ -1,6 +1,7 @@
 """Holdout and cross-validation reports for the complete model pipeline."""
 import numpy as np
 import pandas as pd
+from scipy import stats
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import cross_validate
 
@@ -69,6 +70,29 @@ def oof_classification_report(y_true, y_pred):
     )
     print(text)
     return text
+
+
+def corrected_paired_test(scores_a, scores_b, test_train_ratio: float) -> dict:
+    """Nadeau-Bengio paired t-test, correcting for overlapping CV training folds.
+
+    For k-fold CV use test_train_ratio=1/(k-1). Inputs must be scores from
+    the same validation rows, in the same fold order.
+    """
+    a, b = np.asarray(scores_a, dtype=float), np.asarray(scores_b, dtype=float)
+    if a.ndim != 1 or b.ndim != 1 or a.shape != b.shape or len(a) < 2:
+        raise ValueError("Provide equal-length one-dimensional scores for at least two paired folds")
+    if not np.isfinite(a).all() or not np.isfinite(b).all() or test_train_ratio <= 0:
+        raise ValueError("Scores must be finite and test_train_ratio must be positive")
+    diff = a - b
+    k = len(diff)
+    se = np.sqrt((1 / k + test_train_ratio) * diff.var(ddof=1))
+    # Equal scores mean no difference. A constant nonzero difference is degenerate.
+    t = float(diff.mean() / se) if se > 0 else (0.0 if diff.mean() == 0 else float(np.copysign(np.inf, diff.mean())))
+    p_value = float(2 * stats.t.sf(abs(t), df=k - 1))
+    return {
+        "mean_diff": float(diff.mean()), "wins": f"{int((diff > 0).sum())}/{k}",
+        "t": t, "p_value": p_value,
+    }
 
 
 def fairness_report(y_test, y_pred, extras_test: pd.DataFrame, sensitive_attr: str = "race", dataset_label="test set") -> str:

@@ -111,6 +111,46 @@ def add_missingness_indicators(df, config):
     return out
 
 
+ENGINEERED_FEATURES = (
+    "priors_per_adult_year", "juvenile_per_adult_year", "priors_age_interaction",
+)
+
+
+def add_engineered_features(df, features=ENGINEERED_FEATURES):
+    """Fixed, row-preserving formulas; missing components remain missing.
+
+    No statistic is learned, so these features can be made before splitting.
+    The denominator follows the notebook's age-17 convention (minimum 1).
+    """
+    unknown = set(features) - set(ENGINEERED_FEATURES)
+    if unknown:
+        raise ValueError(f"Unknown engineered features: {sorted(unknown)}")
+    out = df.copy()
+    adult_years = (out["age"] - 17).clip(lower=1)
+    if "priors_per_adult_year" in features:
+        out["priors_per_adult_year"] = out["priors_count"] / adult_years
+    if "juvenile_per_adult_year" in features:
+        # Do not silently interpret a missing juvenile count as zero.
+        juvenile_count = out[["juv_fel_count", "juv_misd_count", "juv_other_count"]].sum(
+            axis=1, min_count=3
+        )
+        out["juvenile_per_adult_year"] = juvenile_count / adult_years
+    if "priors_age_interaction" in features:
+        out["priors_age_interaction"] = out["priors_count"] * out["age"]
+    return out
+
+
+def configure_engineered_features(config, features):
+    """Select a feature ablation in the run config, without changing the base recipe."""
+    unknown = set(features) - set(ENGINEERED_FEATURES)
+    if unknown:
+        raise ValueError(f"Unknown engineered features: {sorted(unknown)}")
+    options = config["preprocessing"]
+    options["engineered_features"] = list(dict.fromkeys(features))
+    baseline = [name for name in options["numeric_features"] if name not in ENGINEERED_FEATURES]
+    options["numeric_features"] = baseline + options["engineered_features"]
+
+
 def split_features_target(df, config):
     """Return model inputs, optional target, and separate fairness attributes."""
     out = add_missingness_indicators(df, config)

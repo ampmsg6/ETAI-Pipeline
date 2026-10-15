@@ -1,0 +1,19 @@
+{
+  "n_trials": 30,
+  "outer_folds": 5,
+  "inner_folds": 5,
+  "metric": "accuracy",
+  "cv_seed": 42,
+  "tuning_seed": 42,
+  "reserved_test_evaluated": false,
+  "data_sha256": "6a747fd4a04d545976510401695587984a06662ea319b614fbf079b61201161a",
+  "versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "optuna": "5.0.0",
+    "PyYAML": "6.0.3"
+  },
+  "completed_runs": 14
+}

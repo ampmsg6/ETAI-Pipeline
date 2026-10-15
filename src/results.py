@@ -6,6 +6,7 @@ results, and fairness table to a timestamped file in `results/` so runs can be
 compared after changing `config.yaml`.
 """
 import os
+import json
 from datetime import datetime
 
 
@@ -17,9 +18,15 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
     """
     os.makedirs(results_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     path = os.path.join(results_dir, f"run_{timestamp}.txt")
 
+    tuning = config.get("tuning", {})
+    tuning_line = (
+        f"Optuna: {tuning['n_trials']} trials x {tuning['n_splits']} inner folds; "
+        f"seed={tuning['random_state']}"
+        if tuning.get("enabled") else "off"
+    )
     header = (
         f"Run: {timestamp}\n"
         f"Model: {config['model']['type']}  params={config['model'].get('params', {})}\n"
@@ -29,10 +36,15 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
         f"random_state: {config['test_set']['random_state']}\n"
         f"CV: {config['cv']['n_splits']} folds, scoring={config['cv']['scoring']}, "
         f"random_state={config['cv']['random_state']}\n"
+        f"Tuning: {tuning_line}\n"
+        f"Numeric features: {config['preprocessing']['numeric_features']}\n"
         + "=" * 60 + "\n\n"
     )
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(header + report_text)
+
+    with open(path.removesuffix(".txt") + "_config.json", "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
 
     return path

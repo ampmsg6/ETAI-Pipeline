@@ -6,7 +6,7 @@ Antonio Gonçalves — 20260536
 
 This project predicts whether a person will be rearrested within two years (`two_year_recid`) using the COMPAS case dataset. The model uses age, sex, charge degree, and prior offense counts. It does not use `race` or COMPAS's own risk score as predictors. We keep those fields separately to check false-positive rates by race and compare with COMPAS. The [data dictionary](data/README.md) describes the columns.
 
-The current configuration runs a random forest with 100 trees and a minimum of five rows per leaf. Numeric features use median imputation, categorical features use target encoding, and numeric features use robust scaling. The settings are in `config.yaml`.
+The current configuration runs a random forest with 200 trees and tunes its depth, minimum leaf size, and feature sampling with Optuna. Numeric features use median imputation, categorical features use target encoding, and numeric features use robust scaling. The settings are in `config.yaml`.
 
 ## Run the pipeline
 
@@ -24,7 +24,28 @@ On macOS or Linux, activate the environment with `source venv/bin/activate`. The
 python main.py
 ```
 
-The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports one holdout score within development, five-fold cross-validation scores, an out-of-fold classification report, and false-positive rates by race. It then fits the configured pipeline on all development rows. The reserved test rows are not scored. A timestamped report is saved in `results/`.
+The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports a development holdout and default five-fold CV, evaluates tuning with nested CV, and tunes once more on all development rows to choose the final hyperparameters. Classification and race-group false-positive rates use nested out-of-fold predictions when tuning is enabled. It then refits the selected pipeline on all development rows. The reserved test rows are not scored. A timestamped report, the run configuration, fold tables, and Optuna trials are saved in `results/`.
+
+Use short runs while checking a change, or select another model without editing the saved configuration:
+
+```powershell
+python main.py --model decision_tree --trials 5
+python main.py --model adaboost --no-tuning
+python main.py --model oblique_random_forest --trials 5
+python main.py --model logistic_regression --features priors_per_adult_year
+```
+
+`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. CLI overrides apply only to the current run. The full default budget is 30 trials, with five inner and five outer folds.
+
+## Pipeline progress
+
+| Week | Focus | Implemented in this project |
+|---|---|---|
+| 2 | Baseline | Logistic regression and decision tree, train/test evaluation and a simple fairness comparison. |
+| 3 | EDA and preprocessing | Data diagnosis, fixed cleaning and recovery rules, imputation, missingness indicators, and preprocessing comparisons. |
+| 4 | Cross-validation | Row-preserving cleaning, exact deduplication, reserved test rows, whole-pipeline CV, OOF reports, and development-only comparisons. |
+| 5 | Hyperparameter tuning | Seeded Optuna studies, search spaces for logistic regression and decision tree, nested CV, an optimism check, and final development-set tuning/refit. |
+| 6 | Ensembles and features | Oblique Random Forest and AdaBoost, ensemble search spaces, a corrected paired test, and separate nested-CV ablations of three fixed engineered features. |
 
 ## What changed in Week 3
 
@@ -69,6 +90,9 @@ We also compared median imputation with a five-neighbor `KNNImputer`. With the s
 | `scripts/tune_preprocessing.py` | Compare encoder and scaler combinations. |
 | `scripts/compare_week3.py` | Compare Week 2 and cleaned models on shared test records. |
 | `scripts/compare_week4.py` | Compare Week 4 models and preprocessing choices on the same development folds. |
+| `src/tuning.py` | Run Optuna tuning, nested cross-validation, and the tuning report. |
+| `scripts/compare_week6.py` | Run five baseline models and nine feature ablations, with matching checkpoints for resumable runs. |
+| `tests/test_week6.py` | Check fold isolation, feature missingness, ensemble tuning, and paired comparisons. |
 
 To regenerate the diagnosis, experiment tables, and current run report, use these commands from the project root:
 
@@ -81,6 +105,17 @@ python main.py
 ```
 
 The scripts write `results/week3_tuning.csv`, `results/week3_comparison.csv`, `results/week4_comparison.csv`, and `results/week4_repeated_cv.csv`. Reports from `main.py` are also in `results/`.
+
+To reproduce the Week 5-6 experiments and compact result tables:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m scripts.compare_week6 --resume
+```
+
+The comparison uses 30 trials per study and 200 trees in each forest. It runs five baseline models and each of three features separately for logistic regression, Random Forest, and AdaBoost (14 runs). Full reports and checkpoints live in `results/week6/`; the compact tables and environment metadata live in `reports/week6/`. `--resume` reuses a completed run only when its statistical settings, input data, source code and dependency versions match; CPU worker counts may differ. Ensemble CV normally uses five processes, with one worker per forest fit and one native thread per process, to avoid parallelizing both levels. A five-trial timing check confirmed identical forest scores with parallel folds and parallel trees. Set `--parallel-folds 1` for serial CV. For a short comparison, use `--trials 5 --output-dir results/week6_short --publish-dir results/week6_short/tables`, so it does not overwrite the final published tables.
+
+`requirements-lock.txt` records the installed versions used for the final experiments (Python 3.13.3). To recreate that environment, install it with `python -m pip install -r requirements-lock.txt`. The ordinary `requirements.txt` retains the course's supported minimum versions.
 
 ## Week 2 versus the cleaned pipeline
 
@@ -144,3 +179,55 @@ One split favoured KNN imputation for logistic regression. Across five folds its
 The logistic model with count encoding raised convergence warnings in three of the five folds. Count-encoded values reach about 4,700 and are not scaled, unlike the numeric features. In a separate check, adding a `StandardScaler` before the model removed the warnings; CV accuracy stayed at 0.674 ± 0.013 and F1 at 0.600, so the table value stands. The configured recipe does not use count encoding.
 
 The Week 3 score of 0.658 came from the old 1,443-row test set. Week 4's holdout and CV scores come from the 5,771 development rows and answer a different question, so their numerical difference is not a measured gain on the same test rows. The same 42-seed test rows were examined during Week 3; from Week 4 onward this script sets them aside, but they are not historically untouched. We will not use them to choose further recipes.
+
+## Model evaluation: Weeks 5–6
+
+The Week 5 tuning and Week 6 ensemble builders follow the [course pipeline at the Week 6 commit](https://github.com/sofiacper/ETAI-Pipeline/tree/c261985d9b32495520eff123ba559d162a087b49). They are adapted to this project's full-config preprocessing interface. The project's cleaning and count recovery rules are retained. Logistic regression also gets the Week 5 challenge search space for `C`, from `0.0001` to `100` on a log scale.
+
+Each final run uses the same 5,771 development records, the same five stratified outer folds (seed 42), and accuracy as its objective. A seeded Optuna TPE study tries 30 candidates, each scored by five inner folds of the whole pipeline. Preprocessing is fitted afresh on the training portion of every inner fold. In nested CV, each outer-validation fold is excluded from the whole study used to predict it. A final 30-trial study on all development rows supplies the parameters for the final refit. The best trial's CV score is a selection score; the nested outer-fold mean ± sample standard deviation is the result reported for a tuned model.
+
+The forests use 200 trees throughout, with tree size tuned rather than tree count. Ordinary Random Forest tunes `max_depth`, `min_samples_leaf`, and `max_features`; the oblique forest tunes its base-tree depth/leaf size and projection `n_components`. AdaBoost tunes base-tree depth, boosting rounds and learning rate together. The mean gap is training accuracy minus validation accuracy. The optimism check is mean `inner_best` minus mean outer validation, using the five nested folds; it is separate from the best trial of the final study.
+
+### Ensembles: final 30-trial results
+
+These results were computed in this project on 14 October 2026. The five rows use the baseline feature set, with the notebook's default model parameters before tuning. All percentages can be read by multiplying the accuracy by 100. The hyperparameters below come from the final study on all development rows; individual outer folds select their own parameters.
+
+| Model | Default: CV mean ± std (gap) | Tuned: nested CV mean ± std (gap) | Best trial | Optimism | Chosen hyperparameters |
+|---|---|---|---:|---:|---|
+| Logistic regression | 0.672 ± 0.013 (+0.004) | 0.673 ± 0.015 (+0.004) | 0.6777 | +0.0022 | `C=0.0794` |
+| Decision tree | 0.614 ± 0.012 (+0.082) | 0.676 ± 0.019 (+0.009) | 0.6803 | −0.0007 | `max_depth=6`, `min_samples_leaf=110`, `criterion=entropy` |
+| Random Forest | 0.647 ± 0.016 (+0.085) | 0.681 ± 0.015 (+0.008) | 0.6838 | +0.0012 | `max_depth=24`, `min_samples_leaf=45`, `max_features=0.5` |
+| Oblique Random Forest | 0.648 ± 0.014 (+0.114) | 0.682 ± 0.014 (+0.009) | 0.6831 | +0.0003 | tree `max_depth=4`, `min_samples_leaf=3`; projection `n_components=8` |
+| AdaBoost | 0.676 ± 0.013 (+0.006) | 0.684 ± 0.014 (+0.004) | 0.6834 | −0.0005 | base tree `max_depth=4`, `n_estimators=220`, `learning_rate=0.0251` |
+
+Tuning improved the single tree by 0.062 and the forests by about 0.033–0.034, larger than their outer-fold standard deviations, while logistic regression (+0.001) and AdaBoost (+0.008) gained less than their fold-to-fold spread. AdaBoost had the highest mean, but its 0.0029 lead over Random Forest was much smaller than the fold standard deviations and the corrected paired test gave p=0.469; all four comparisons against the other tuned baselines had p>0.05. The parameters limit memorisation: the ordinary forest allows depth up to 24 but requires 45 rows per leaf, the oblique forest caps depth at 4, and AdaBoost uses depth-4 trees with a small learning rate and 220 rounds. I retain the ordinary Random Forest as the configured model: its familiar axis-aligned construction reaches similar measured performance, with no established accuracy winner among these tuned models. I would report its **nested CV accuracy of 0.681 ± 0.015**, while keeping the final study's 0.6838 best-trial score identified as a selection score.
+
+Small negative optimism estimates for the tree and AdaBoost reflect variation between inner and outer folds; they do not turn the final study's maximum into an independent evaluation. Exact values, chosen parameters and run references are in [comparison.csv](reports/week6/comparison.csv), the paired outer scores are in [folds.csv](reports/week6/folds.csv), and the statistical comparisons are in [model_comparisons.csv](reports/week6/model_comparisons.csv).
+
+### Challenge 1: fixed engineered features
+
+| Feature | Formula | Reason to try it |
+|---|---|---|
+| `priors_per_adult_year` | `priors_count / max(age - 17, 1)` | The notebook's example: expose a ratio that a linear model cannot derive from separate age and prior counts. |
+| `juvenile_per_adult_year` | `(juv_fel_count + juv_misd_count + juv_other_count) / max(age - 17, 1)` | A candidate ratio of recorded juvenile history to the same age-based denominator; it is a constructed feature, not an observed exposure rate. |
+| `priors_age_interaction` | `priors_count * age` | Let the effect of priors depend on age in a linear model. |
+
+The denominator follows the notebook's convention: age 18 gives one unit. All three formulas use only the current record and learn no dataset statistic, so they run after cleaning/deduplication and before `split_features_target()`. They preserve row order and missingness; the juvenile sum is missing if any of its three components is missing. Engineered missing values are imputed inside the fold-fitted preprocessing pipeline. `race`, `id`, `decile_score`, `score_text` and the target remain excluded from the features.
+
+Each feature is tested **separately**, against the baseline, for logistic regression, Random Forest and AdaBoost. Both versions are retuned with the same budget and folds. The corrected paired test uses the five outer accuracy differences and validation/training ratio `1/4`; an uncorrected t-test would understate uncertainty because the training folds overlap. Comparisons are exploratory pairwise checks without a multiple-comparison adjustment. Feature choice itself is not nested inside these studies, so the table estimates each specified recipe rather than the full process of choosing features.
+
+| Added feature | Model | Nested CV mean ± std | Change vs baseline | Std of paired changes | Wins | Corrected p |
+|---|---|---|---:|---:|---:|---:|
+| `priors_per_adult_year` | Logistic regression | 0.675 ± 0.012 | +0.0017 | 0.0054 | 3/5 | 0.656 |
+| `priors_per_adult_year` | Random Forest | 0.675 ± 0.010 | −0.0054 | 0.0099 | 2/5 | 0.464 |
+| `priors_per_adult_year` | AdaBoost | 0.677 ± 0.010 | −0.0068 | 0.0052 | 0/5 | 0.126 |
+| `juvenile_per_adult_year` | Logistic regression | 0.675 ± 0.015 | +0.0024 | 0.0058 | 2/5 | 0.568 |
+| `juvenile_per_adult_year` | Random Forest | 0.678 ± 0.016 | −0.0029 | 0.0068 | 1/5 | 0.551 |
+| `juvenile_per_adult_year` | AdaBoost | 0.683 ± 0.014 | −0.0007 | 0.0034 | 3/5 | 0.775 |
+| `priors_age_interaction` | Logistic regression | 0.674 ± 0.016 | +0.0012 | 0.0055 | 3/5 | 0.760 |
+| `priors_age_interaction` | Random Forest | 0.682 ± 0.017 | +0.0010 | 0.0050 | 3/5 | 0.771 |
+| `priors_age_interaction` | AdaBoost | 0.680 ± 0.018 | −0.0033 | 0.0088 | 1/5 | 0.608 |
+
+Logistic regression gained a little from all three representations, with the largest mean gain from the juvenile ratio (+0.0024), but every gain was smaller than the standard deviation of its paired changes. The forests and boosting did not benefit consistently: the ordinary forest lost accuracy with both ratios, while AdaBoost's means were lower with each added feature. None of the nine corrected paired comparisons had p<0.05, so these runs do not support adding a feature to the selected recipe. The configured pipeline therefore keeps `engineered_features: []`; the formulas and CLI options remain available for reproducible experiments.
+
+The unrounded feature comparisons are in [feature_comparisons.csv](reports/week6/feature_comparisons.csv); [comparison.csv](reports/week6/comparison.csv) also contains the default scores, gaps and final-study hyperparameters for all 14 runs. [metadata.json](reports/week6/metadata.json) records the input-data hash, seeds, fold counts, trial budget and dependency versions. The reserved 1,443 test records were not scored in any Week 5–6 run.
