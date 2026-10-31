@@ -14,7 +14,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.validation import check_is_fitted
 
 from main import load_config
-from src.evaluate import corrected_paired_test
+from src.evaluate import build_scorers, corrected_paired_test
 from src.model import build_pipeline, default_model_config
 from src.preprocessing import add_engineered_features
 from src.tuning import nested_cross_validate, tune_pipeline
@@ -48,7 +48,7 @@ class Week6Tests(unittest.TestCase):
         space = {"model__max_depth": {"type": "int", "low": 2, "high": 2}}
         RecordingTransformer.seen.clear()
         with contextlib.redirect_stdout(io.StringIO()):
-            folds, oof = nested_cross_validate(pipeline, X, y, outer, inner, "accuracy", space, 2, 42)
+            folds, oof = nested_cross_validate(pipeline, X, y, outer, inner, build_scorers(["accuracy"]), "accuracy", space, 2, 42)
         # Two trials * two inner fits + the chosen pipeline's outer refit.
         self.assertEqual(len(RecordingTransformer.seen), 15)
         for fold, (train, val) in enumerate(outer.split(X, y)):
@@ -60,7 +60,7 @@ class Week6Tests(unittest.TestCase):
                 self.assertFalse(fit_rows & forbidden)
             self.assertEqual(observed[-1], allowed)
             expected = DecisionTreeClassifier(max_depth=2, random_state=42).fit(X.iloc[train], y.iloc[train])
-            np.testing.assert_array_equal(oof[val], expected.predict(X.iloc[val]))
+            np.testing.assert_array_equal(oof[val], expected.predict_proba(X.iloc[val])[:, 1])
         self.assertEqual(len(folds), 3)
         best, _ = tune_pipeline(pipeline, X, y, inner, "accuracy", space, 1, 42)
         with self.assertRaises(NotFittedError):
@@ -108,7 +108,7 @@ class Week6Tests(unittest.TestCase):
                     space = {"model__estimator__max_depth": {"type": "int", "low": 1, "high": 2}}
                 else:
                     space = config["tuning"]["search_spaces"][name]
-                folds, oof = nested_cross_validate(pipeline, X, y, cv, cv, "accuracy", space, 1, 42)
+                folds, oof = nested_cross_validate(pipeline, X, y, cv, cv, build_scorers(["accuracy"]), "accuracy", space, 1, 42)
                 self.assertEqual(len(oof), len(X))
                 self.assertTrue(folds["validation"].between(0, 1).all())
                 pipeline.set_params(**{key: folds.iloc[0][key] for key in space})

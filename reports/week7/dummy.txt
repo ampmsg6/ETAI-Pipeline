@@ -1,0 +1,77 @@
+Run: 20261031_131435_563346
+Model: dummy  params={'strategy': 'most_frequent'}
+Preprocessing: encoder=target  scaler=robust
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Tuning: off
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'strategy': 'most_frequent'}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.500       0.500 0.000     0.549              0.500      0.000   0.000 0.000    0.000    0.500              0.451
+    2  0.500       0.500 0.000     0.549              0.500      0.000   0.000 0.000    0.000    0.500              0.451
+    3  0.500       0.500 0.000     0.549              0.500      0.000   0.000 0.000    0.000    0.500              0.451
+    4  0.500       0.500 0.000     0.549              0.500      0.000   0.000 0.000    0.000    0.500              0.451
+    5  0.500       0.500 0.000     0.549              0.500      0.000   0.000 0.000    0.000    0.500              0.451
+
+                   mean   std
+accuracy          0.549 0.000
+balanced_accuracy 0.500 0.000
+precision         0.000 0.000
+recall            0.000 0.000
+f1                0.000 0.000
+fbeta_2           0.000 0.000
+roc_auc           0.500 0.000
+average_precision 0.451 0.000
+
+roc_auc: train-validation gap mean = +0.000
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         3170            0
+true 1         2601            0
+
+              precision    recall  f1-score   support
+
+           0       0.55      1.00      0.71      3170
+           1       0.00      0.00      0.00      2601
+
+    accuracy                           0.55      5771
+   macro avg       0.27      0.50      0.35      5771
+weighted avg       0.30      0.55      0.39      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.00  (n=1420)
+    Asian                FPR = 0.00  (n=21)
+    Caucasian            FPR = 0.00  (n=1161)
+    Hispanic             FPR = 0.00  (n=311)
+    Native American      FPR = 0.00  (n=6)
+    Other                FPR = 0.00  (n=185)
+    unknown              FPR = 0.00  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: default CV; threshold: 0.5
+
+Final model: dummy refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+
+Scoreboard:
+                   run model  tuned encoder scaler  roc_auc   std  untuned  floor
+20261031_131435_563346 dummy  False  target robust    0.500 0.000    0.500  0.500

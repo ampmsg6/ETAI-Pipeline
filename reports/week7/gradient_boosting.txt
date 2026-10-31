@@ -1,0 +1,115 @@
+Run: 20261031_131939_935147
+Model: gradient_boosting  params={'random_state': 42}
+Preprocessing: encoder=target  scaler=robust
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Tuning: Optuna, 30 trials x 5 folds, nested CV  random_state=42
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'random_state': 42}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.749       0.732 0.017     0.684              0.672      0.687   0.551 0.611    0.574    0.732              0.686
+    2  0.755       0.702 0.054     0.662              0.653      0.644   0.558 0.598    0.573    0.702              0.659
+    3  0.748       0.737 0.011     0.698              0.690      0.688   0.606 0.644    0.621    0.737              0.700
+    4  0.746       0.738 0.008     0.686              0.673      0.698   0.537 0.607    0.562    0.738              0.729
+    5  0.748       0.731 0.017     0.684              0.672      0.683   0.556 0.613    0.577    0.731              0.681
+
+                   mean   std
+accuracy          0.683 0.013
+balanced_accuracy 0.672 0.013
+precision         0.680 0.021
+recall            0.561 0.026
+f1                0.615 0.018
+fbeta_2           0.581 0.023
+roc_auc           0.728 0.015
+average_precision 0.691 0.026
+
+roc_auc: train-validation gap mean = +0.021
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Nested cross-validation (the tuning procedure, estimated honestly) (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation    gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision  inner_best  model__n_estimators  model__learning_rate  model__max_depth  model__min_samples_leaf  model__subsample
+    1  0.741       0.728  0.013     0.670              0.656      0.677   0.514 0.585    0.540    0.728              0.681       0.728                   30                 0.070                 4                       43             0.543
+    2  0.760       0.702  0.057     0.660              0.652      0.640   0.563 0.599    0.577    0.702              0.658       0.737                  160                 0.027                 4                        1             0.623
+    3  0.741       0.738  0.003     0.694              0.685      0.684   0.596 0.637    0.612    0.738              0.703       0.725                  111                 0.034                 4                       42             0.549
+    4  0.737       0.739 -0.003     0.692              0.680      0.696   0.560 0.620    0.582    0.739              0.729       0.723                  116                 0.068                 2                        6             0.510
+    5  0.733       0.735 -0.002     0.693              0.684      0.684   0.592 0.635    0.609    0.735              0.689       0.726                  137                 0.116                 1                       12             0.678
+
+                   mean   std
+accuracy          0.682 0.016
+balanced_accuracy 0.671 0.016
+precision         0.676 0.022
+recall            0.565 0.033
+f1                0.615 0.023
+fbeta_2           0.584 0.029
+roc_auc           0.728 0.015
+average_precision 0.692 0.027
+
+roc_auc: train-validation gap mean = +0.014
+
+Tuning on the whole development set (30 Optuna trials, metric: roc_auc)
+Best hyperparameters: {'model__n_estimators': 190, 'model__learning_rate': 0.015861836622604496, 'model__max_depth': 4, 'model__min_samples_leaf': 76, 'model__subsample': 0.6000906539134349}
+Best mean CV score:   0.730  (the maximum over all trials -- optimistic)
+
+Top 5 trials:
+ trial  mean roc_auc  model__learning_rate  model__max_depth  model__min_samples_leaf  model__n_estimators  model__subsample   std
+    22         0.730                 0.016                 4                       76                  190             0.600 0.015
+    21         0.729                 0.020                 4                       47                  189             0.516 0.016
+    26         0.729                 0.015                 5                       52                  183             0.528 0.016
+    20         0.729                 0.017                 5                       85                  222             0.578 0.015
+    19         0.729                 0.014                 5                       76                  207             0.624 0.015
+
+Optimism check (nested CV):
+  tuning score inside the outer folds (inner_best) mean = 0.728
+  honest score on the outer folds (validation)     mean = 0.728
+  optimism = -0.001   -> report the honest one
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         2465          705
+true 1         1131         1470
+
+              precision    recall  f1-score   support
+
+           0       0.69      0.78      0.73      3170
+           1       0.68      0.57      0.62      2601
+
+    accuracy                           0.68      5771
+   macro avg       0.68      0.67      0.67      5771
+weighted avg       0.68      0.68      0.68      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.30  (n=1420)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.16  (n=1161)
+    Hispanic             FPR = 0.16  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.18  (n=185)
+    unknown              FPR = 0.20  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: nested CV; threshold: 0.5
+
+Final model: gradient_boosting refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+
+Scoreboard:
+                   run             model  tuned encoder scaler  roc_auc   std  untuned  floor
+20261031_131939_935147 gradient_boosting   True  target robust    0.728 0.015    0.728  0.500

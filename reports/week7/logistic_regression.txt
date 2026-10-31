@@ -1,0 +1,116 @@
+Run: 20261031_131438_533311
+Model: logistic_regression  params={'max_iter': 2000}
+Preprocessing: encoder=target  scaler=robust
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Tuning: Optuna, 30 trials x 5 folds, nested CV  random_state=42
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'max_iter': 2000}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation    gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.719       0.726 -0.006     0.679              0.663      0.703   0.499 0.584    0.530    0.726              0.673
+    2  0.727       0.694  0.033     0.653              0.640      0.648   0.506 0.568    0.529    0.694              0.631
+    3  0.719       0.726 -0.007     0.674              0.661      0.676   0.531 0.595    0.555    0.726              0.676
+    4  0.717       0.725 -0.008     0.688              0.672      0.717   0.508 0.595    0.539    0.725              0.713
+    5  0.719       0.721 -0.002     0.665              0.650      0.672   0.500 0.573    0.527    0.721              0.675
+
+                   mean   std
+accuracy          0.672 0.013
+balanced_accuracy 0.657 0.012
+precision         0.683 0.027
+recall            0.509 0.013
+f1                0.583 0.012
+fbeta_2           0.536 0.012
+roc_auc           0.718 0.014
+average_precision 0.673 0.029
+
+roc_auc: train-validation gap mean = +0.002
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Nested cross-validation (the tuning procedure, estimated honestly) (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation    gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision  inner_best  model__C
+    1  0.719       0.720 -0.001     0.635              0.610      0.691   0.347 0.462    0.386    0.720              0.666       0.719     0.002
+    2  0.727       0.694  0.033     0.653              0.640      0.648   0.506 0.568    0.529    0.694              0.631       0.726     0.809
+    3  0.718       0.726 -0.008     0.663              0.640      0.724   0.408 0.522    0.447    0.726              0.673       0.717     0.003
+    4  0.717       0.725 -0.007     0.682              0.657      0.787   0.404 0.534    0.447    0.725              0.708       0.717     0.003
+    5  0.718       0.725 -0.007     0.655              0.632      0.710   0.396 0.509    0.435    0.725              0.680       0.717     0.003
+
+                   mean   std
+accuracy          0.658 0.017
+balanced_accuracy 0.636 0.017
+precision         0.712 0.051
+recall            0.412 0.058
+f1                0.519 0.039
+fbeta_2           0.449 0.051
+roc_auc           0.718 0.014
+average_precision 0.672 0.028
+
+roc_auc: train-validation gap mean = +0.002
+
+Tuning on the whole development set (30 Optuna trials, metric: roc_auc)
+Best hyperparameters: {'model__C': 0.0020477212966637385}
+Best mean CV score:   0.719  (the maximum over all trials -- optimistic)
+
+Top 5 trials:
+ trial  mean roc_auc  model__C   std
+    24         0.719     0.002 0.011
+    18         0.719     0.002 0.011
+    21         0.719     0.002 0.012
+    28         0.719     0.002 0.011
+    22         0.719     0.002 0.011
+
+Optimism check (nested CV):
+  tuning score inside the outer folds (inner_best) mean = 0.719
+  honest score on the outer folds (validation)     mean = 0.718
+  optimism = +0.001   -> report the honest one
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         2724          446
+true 1         1529         1072
+
+              precision    recall  f1-score   support
+
+           0       0.64      0.86      0.73      3170
+           1       0.71      0.41      0.52      2601
+
+    accuracy                           0.66      5771
+   macro avg       0.67      0.64      0.63      5771
+weighted avg       0.67      0.66      0.64      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.20  (n=1420)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.08  (n=1161)
+    Hispanic             FPR = 0.10  (n=311)
+    Native American      FPR = 0.00  (n=6)
+    Other                FPR = 0.09  (n=185)
+    unknown              FPR = 0.20  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: nested CV; threshold: 0.5
+
+Final model: logistic_regression refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+
+Scoreboard:
+                   run               model  tuned encoder scaler  roc_auc   std  untuned  floor
+20261031_131438_533311 logistic_regression   True  target robust    0.718 0.014    0.718  0.500
+20261031_131435_563346               dummy  False  target robust    0.500 0.000    0.500  0.500

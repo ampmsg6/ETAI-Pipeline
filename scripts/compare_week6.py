@@ -129,6 +129,9 @@ def main():
     if args.parallel_folds < 1:
         parser.error("--parallel-folds must be at least 1")
     base = load_config()
+    # Retain the Week 6 accuracy objective after the Week 7 config migration.
+    base["cv"].update(metrics=["accuracy"], selection_metric="accuracy", scoring="accuracy")
+    base["output"]["scoreboard"] = str(Path(args.output_dir) / "runs.csv")
     base["tuning"].update(enabled=True, n_trials=args.trials)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

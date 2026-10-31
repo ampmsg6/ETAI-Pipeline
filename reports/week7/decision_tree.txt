@@ -1,0 +1,118 @@
+Run: 20261031_131507_807884
+Model: decision_tree  params={'random_state': 42}
+Preprocessing: encoder=target  scaler=robust
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Tuning: Optuna, 30 trials x 5 folds, nested CV  random_state=42
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'random_state': 42}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.713       0.627 0.087     0.624              0.616      0.593   0.532 0.561    0.543    0.627              0.548
+    2  0.739       0.591 0.148     0.599              0.590      0.562   0.498 0.528    0.510    0.591              0.519
+    3  0.711       0.600 0.111     0.603              0.592      0.572   0.475 0.519    0.492    0.600              0.530
+    4  0.709       0.631 0.078     0.624              0.616      0.591   0.535 0.562    0.545    0.631              0.563
+    5  0.711       0.624 0.087     0.622              0.612      0.595   0.508 0.548    0.523    0.624              0.554
+
+                   mean   std
+accuracy          0.614 0.012
+balanced_accuracy 0.605 0.013
+precision         0.583 0.015
+recall            0.509 0.025
+f1                0.543 0.019
+fbeta_2           0.522 0.023
+roc_auc           0.615 0.018
+average_precision 0.543 0.018
+
+roc_auc: train-validation gap mean = +0.102
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Nested cross-validation (the tuning procedure, estimated honestly) (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation    gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision  inner_best  model__max_depth  model__min_samples_leaf model__criterion
+    1  0.736       0.717  0.019     0.663              0.651      0.659   0.524 0.584    0.546    0.717              0.664       0.720                 9                       77             gini
+    2  0.745       0.696  0.049     0.657              0.650      0.629   0.583 0.605    0.591    0.696              0.637       0.725                18                       49          entropy
+    3  0.724       0.722  0.002     0.684              0.674      0.673   0.581 0.623    0.597    0.722              0.669       0.714                20                      158             gini
+    4  0.727       0.735 -0.007     0.680              0.674      0.656   0.612 0.633    0.620    0.735              0.708       0.716                 9                       73             gini
+    5  0.732       0.729  0.002     0.689              0.679      0.683   0.577 0.626    0.595    0.729              0.675       0.709                 6                       83             gini
+
+                   mean   std
+accuracy          0.675 0.014
+balanced_accuracy 0.666 0.014
+precision         0.660 0.021
+recall            0.575 0.032
+f1                0.614 0.020
+fbeta_2           0.590 0.027
+roc_auc           0.720 0.015
+average_precision 0.670 0.025
+
+roc_auc: train-validation gap mean = +0.013
+
+Tuning on the whole development set (30 Optuna trials, metric: roc_auc)
+Best hyperparameters: {'model__max_depth': 11, 'model__min_samples_leaf': 120, 'model__criterion': 'gini'}
+Best mean CV score:   0.719  (the maximum over all trials -- optimistic)
+
+Top 5 trials:
+ trial  mean roc_auc model__criterion  model__max_depth  model__min_samples_leaf   std
+    16         0.719             gini                11                      120 0.012
+    19         0.719             gini                 6                       83 0.013
+     0         0.718             gini                 8                      149 0.008
+    21         0.718             gini                 6                      139 0.011
+    25         0.718             gini                12                       66 0.014
+
+Optimism check (nested CV):
+  tuning score inside the outer folds (inner_best) mean = 0.717
+  honest score on the outer folds (validation)     mean = 0.720
+  optimism = -0.003   -> report the honest one
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         2392          778
+true 1         1100         1501
+
+              precision    recall  f1-score   support
+
+           0       0.68      0.75      0.72      3170
+           1       0.66      0.58      0.62      2601
+
+    accuracy                           0.67      5771
+   macro avg       0.67      0.67      0.67      5771
+weighted avg       0.67      0.67      0.67      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.32  (n=1420)
+    Asian                FPR = 0.14  (n=21)
+    Caucasian            FPR = 0.19  (n=1161)
+    Hispanic             FPR = 0.17  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.19  (n=185)
+    unknown              FPR = 0.21  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: nested CV; threshold: 0.5
+
+Final model: decision_tree refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+
+Scoreboard:
+                   run               model  tuned encoder scaler  roc_auc   std  untuned  floor
+20261031_131507_807884       decision_tree   True  target robust    0.720 0.015    0.615  0.500
+20261031_131438_533311 logistic_regression   True  target robust    0.718 0.014    0.718  0.500
+20261031_131453_984398         naive_bayes   True  target robust    0.705 0.012    0.685  0.500
+20261031_131435_563346               dummy  False  target robust    0.500 0.000    0.500  0.500

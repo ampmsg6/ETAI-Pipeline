@@ -1,7 +1,11 @@
 """Model construction and the complete, fold-fitted estimator."""
 from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, RandomForestClassifier
+from sklearn.ensemble import (
+    AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier,
+    HistGradientBoostingClassifier, RandomForestClassifier,
+)
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
 from sklearn.random_projection import SparseRandomProjection
 from sklearn.tree import DecisionTreeClassifier
@@ -37,6 +41,9 @@ _MODELS = {
     "random_forest": RandomForestClassifier,
     "oblique_random_forest": oblique_random_forest,
     "adaboost": adaboost,
+    "gradient_boosting": GradientBoostingClassifier,
+    "hist_gradient_boosting": HistGradientBoostingClassifier,
+    "naive_bayes": GaussianNB,
 }
 
 
@@ -54,6 +61,9 @@ def default_model_config(model_type: str, random_state: int = 42) -> dict:
             "max_depth": 1, "n_estimators": 200, "learning_rate": 1.0,
             "random_state": random_state,
         },
+        "gradient_boosting": {"random_state": random_state},
+        "hist_gradient_boosting": {"random_state": random_state},
+        "naive_bayes": {},
     }
     if model_type not in params:
         raise ValueError(f"Unknown model type: {model_type}. Options: {list(params)}")

@@ -6,7 +6,7 @@ Antonio Gonçalves — 20260536
 
 This project predicts whether a person will be rearrested within two years (`two_year_recid`) using the COMPAS case dataset. The model uses age, sex, charge degree, and prior offense counts. It does not use `race` or COMPAS's own risk score as predictors. We keep those fields separately to check false-positive rates by race and compare with COMPAS. The [data dictionary](data/README.md) describes the columns.
 
-The current configuration runs a random forest with 200 trees and tunes its depth, minimum leaf size, and feature sampling with Optuna. Numeric features use median imputation, categorical features use target encoding, and numeric features use robust scaling. The settings are in `config.yaml`.
+The current configuration runs gradient boosting and jointly tunes its tree count, learning rate, depth, minimum leaf size and subsampling with Optuna. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features use median imputation, categorical features use target encoding, and numeric features use robust scaling. The settings are in `config.yaml`.
 
 ## Run the pipeline
 
@@ -24,7 +24,7 @@ On macOS or Linux, activate the environment with `source venv/bin/activate`. The
 python main.py
 ```
 
-The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports a development holdout and default five-fold CV, evaluates tuning with nested CV, and tunes once more on all development rows to choose the final hyperparameters. Classification and race-group false-positive rates use nested out-of-fold predictions when tuning is enabled. It then refits the selected pipeline on all development rows. The reserved test rows are not scored. A timestamped report, the run configuration, fold tables, and Optuna trials are saved in `results/`.
+The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports default five-fold CV, evaluates tuning with nested CV, and tunes once more on all development rows to choose the final hyperparameters. Classification, confusion matrices and race-group false-positive rates use nested out-of-fold probabilities at a fixed threshold of 0.5 when tuning is enabled. It then refits the selected pipeline on all development rows. The reserved test rows are not scored. A timestamped report, the run configuration, fold tables, OOF probabilities and Optuna trials are saved in `results/`; each execution also adds a row to `results/runs.csv`.
 
 Use short runs while checking a change, or select another model without editing the saved configuration:
 
@@ -33,6 +33,9 @@ python main.py --model decision_tree --trials 5
 python main.py --model adaboost --no-tuning
 python main.py --model oblique_random_forest --trials 5
 python main.py --model logistic_regression --features priors_per_adult_year
+python main.py --model hist_gradient_boosting --trials 5
+python main.py --model naive_bayes --trials 5
+python main.py --model dummy
 ```
 
 `--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. CLI overrides apply only to the current run. The full default budget is 30 trials, with five inner and five outer folds.
@@ -46,6 +49,54 @@ python main.py --model logistic_regression --features priors_per_adult_year
 | 4 | Cross-validation | Row-preserving cleaning, exact deduplication, reserved test rows, whole-pipeline CV, OOF reports, and development-only comparisons. |
 | 5 | Hyperparameter tuning | Seeded Optuna studies, search spaces for logistic regression and decision tree, nested CV, an optimism check, and final development-set tuning/refit. |
 | 6 | Ensembles and features | Oblique Random Forest and AdaBoost, ensemble search spaces, a corrected paired test, and separate nested-CV ablations of three fixed engineered features. |
+| 7 | Boosting and metrics | Gradient Boosting, HistGradientBoosting and Gaussian Naive Bayes; eight metrics, ROC-AUC selection, OOF probabilities and confusion matrices; a nine-model scoreboard with dummy floor, untuned and nested tuned scores. |
+
+## Week 7: boosting, metrics and the scoreboard
+
+The required changes in `06_boosting.ipynb` and `07_metrics.ipynb` follow the [course pipeline](https://github.com/sofiacper/ETAI-Pipeline/tree/a170b26b131659ec9b5aff6d818d21354c3930c2), adapted to this project's existing cleaning and full-config preprocessing interface. Gradient Boosting, HistGradientBoosting and Gaussian Naive Bayes join the six existing model types. The two boosters jointly tune the number of trees, learning rate and tree size; Gaussian Naive Bayes tunes `var_smoothing`. HistGradientBoosting can handle missing values natively, but this comparison retains the same fold-fitted imputers and missingness flags for every model.
+
+**Selection metric.** We choose ROC-AUC because this task produces a risk ranking, and we want to assess how well recorded positive outcomes rank above negative outcomes across thresholds. Choosing hyperparameters by ROC-AUC keeps that ranking question separate from the decision threshold, fixed here at 0.5. Precision, recall, F1, F2, balanced accuracy and the race-group false-positive rates remain necessary to describe the errors at that threshold; a strong ranking alone does not establish acceptable errors or fairness.
+
+Every run reports `accuracy`, `balanced_accuracy`, `precision`, `recall`, `f1`, `fbeta_2`, `roc_auc` and `average_precision`. F2 puts four times as much weight on recall as precision in the harmonic-mean formula. Average precision summarises the precision-recall curve; its no-skill reference is the positive-class prevalence, whereas the ROC-AUC floor is 0.5. All threshold reports use out-of-fold probabilities from models that did not train on the reported rows. During nested CV, those rows are also excluded from the corresponding Optuna study.
+
+The scoreboard stores one row per execution, including the untuned score, dummy floor, final-study hyperparameters and each outer-fold score. A hash of the input data, cleaning/splitting settings, fold configuration, relevant source files and dependency versions groups compatible runs automatically. This prevents comparing scores from different data or folds as though they were paired. The standard deviations describe variation over folds, not confidence intervals; corrected paired tests remain exploratory comparisons without a multiple-comparison adjustment.
+
+### Final scoreboard: 31 October 2026
+
+All nine models use the same 5,771 development records and the same five outer folds. Every tuned model uses 30 Optuna trials per five-fold inner study, and a further 30-trial study on all development rows for the final refit. Values below are ROC-AUC means ± sample standard deviations over the outer folds; the dummy has no tuning.
+
+| Model | Untuned CV | Tuned nested CV | Dummy floor |
+|---|---:|---:|---:|
+| Gradient Boosting | 0.7280 ± 0.0149 | 0.7284 ± 0.0153 | 0.5000 |
+| AdaBoost | 0.7233 ± 0.0163 | 0.7281 ± 0.0143 | 0.5000 |
+| HistGradientBoosting | 0.7188 ± 0.0187 | 0.7280 ± 0.0155 | 0.5000 |
+| Oblique Random Forest | 0.6856 ± 0.0170 | 0.7275 ± 0.0130 | 0.5000 |
+| Random Forest | 0.6845 ± 0.0193 | 0.7250 ± 0.0156 | 0.5000 |
+| Decision tree | 0.6145 ± 0.0179 | 0.7197 ± 0.0149 | 0.5000 |
+| Logistic regression | 0.7185 ± 0.0138 | 0.7181 ± 0.0136 | 0.5000 |
+| Gaussian Naive Bayes | 0.6848 ± 0.0111 | 0.7052 ± 0.0117 | 0.5000 |
+| Dummy (majority class) | 0.5000 ± 0.0000 | Not tuned | 0.5000 |
+
+Exact scores, settings and paired outer folds are in the [scoreboard CSV](reports/week7/scoreboard.csv), [fold tables](reports/week7/folds.csv) and [all-metric summary](reports/week7/metrics.csv). The [metadata](reports/week7/metadata.json) identifies the data, seeds and software versions. Each model also has a text report and complete run configuration in that folder.
+
+Gradient Boosting has the highest observed mean, but its leads over AdaBoost, HistGradientBoosting and the oblique forest are below 0.001 ROC-AUC. The corrected paired tests give p=0.858, p=0.556 and p=0.738 respectively, so these runs do not establish a winner among those four. Its gain over logistic regression is 0.0103 (5/5 fold wins, corrected p=0.0059), which is evidence for better ranking in this exploratory comparison; the full [paired comparisons](reports/week7/model_comparisons.csv) remain unadjusted for multiple comparisons. We keep Gradient Boosting as the configured Week 7 model, as the assignment requests.
+
+Tuning made the largest change to the single tree (+0.1051 ROC-AUC) and improved both forests by about 0.04; it changed Gradient Boosting's mean by only +0.0004. These are ROC-AUC results, so their numerical differences from Week 6's accuracy figures are not measured performance gains. Nested CV evaluates the specified tuning procedure for each model; choosing the highest row across nine models is another selection step, without a final test-set assessment here.
+
+Reproduce the complete nine-model comparison and its published tables with:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m scripts.compare_week7 --trials 30 --resume
+```
+
+`--resume` reuses completed runs only when the recipe, data, source, dependency versions and trial budget match. Models use the same five outer and five inner folds, seeds 42, and baseline features. The dummy has no tuning search. CV runs in five processes, each restricted to one native thread, and forest fits use one worker to avoid nested CPU parallelism. Full local evidence is in `results/week7/`; the submission includes [results/runs.csv](results/runs.csv) and compact reports in [reports/week7](reports/week7). To test with five trials without mixing short runs into the final board:
+
+```powershell
+python -m scripts.compare_week7 --trials 5 --scoreboard results/week7_short/runs.csv --output-dir results/week7_short --publish-dir results/week7_short/tables
+```
+
+Part B's `VoteSelector` is optional and is not enabled in this submission. The required comparison keeps `engineered_features: []`, following the Week 6 ablation results. The 1,443 reserved test records remain unevaluated in Week 7; their historical Week 3 use is documented below.
 
 ## What changed in Week 3
 
@@ -200,7 +251,7 @@ These results were computed in this project on 14 October 2026. The five rows us
 | Oblique Random Forest | 0.648 ± 0.014 (+0.114) | 0.682 ± 0.014 (+0.009) | 0.6831 | +0.0003 | tree `max_depth=4`, `min_samples_leaf=3`; projection `n_components=8` |
 | AdaBoost | 0.676 ± 0.013 (+0.006) | 0.684 ± 0.014 (+0.004) | 0.6834 | −0.0005 | base tree `max_depth=4`, `n_estimators=220`, `learning_rate=0.0251` |
 
-Tuning improved the single tree by 0.062 and the forests by about 0.033–0.034, larger than their outer-fold standard deviations, while logistic regression (+0.001) and AdaBoost (+0.008) gained less than their fold-to-fold spread. AdaBoost had the highest mean, but its 0.0029 lead over Random Forest was much smaller than the fold standard deviations and the corrected paired test gave p=0.469; all four comparisons against the other tuned baselines had p>0.05. The parameters limit memorisation: the ordinary forest allows depth up to 24 but requires 45 rows per leaf, the oblique forest caps depth at 4, and AdaBoost uses depth-4 trees with a small learning rate and 220 rounds. I retain the ordinary Random Forest as the configured model: its familiar axis-aligned construction reaches similar measured performance, with no established accuracy winner among these tuned models. I would report its **nested CV accuracy of 0.681 ± 0.015**, while keeping the final study's 0.6838 best-trial score identified as a selection score.
+Tuning improved the single tree by 0.062 and the forests by about 0.033–0.034, larger than their outer-fold standard deviations, while logistic regression (+0.001) and AdaBoost (+0.008) gained less than their fold-to-fold spread. AdaBoost had the highest mean, but its 0.0029 lead over Random Forest was much smaller than the fold standard deviations and the corrected paired test gave p=0.469; all four comparisons against the other tuned baselines had p>0.05. The parameters limit memorisation: the ordinary forest allows depth up to 24 but requires 45 rows per leaf, the oblique forest caps depth at 4, and AdaBoost uses depth-4 trees with a small learning rate and 220 rounds. For Week 6, I retained the ordinary Random Forest as the configured model: its familiar axis-aligned construction reaches similar measured performance, with no established accuracy winner among these tuned models. I would report its **nested CV accuracy of 0.681 ± 0.015**, while keeping the final study's 0.6838 best-trial score identified as a selection score.
 
 Small negative optimism estimates for the tree and AdaBoost reflect variation between inner and outer folds; they do not turn the final study's maximum into an independent evaluation. Exact values, chosen parameters and run references are in [comparison.csv](reports/week6/comparison.csv), the paired outer scores are in [folds.csv](reports/week6/folds.csv), and the statistical comparisons are in [model_comparisons.csv](reports/week6/model_comparisons.csv).
 

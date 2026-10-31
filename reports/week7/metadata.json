@@ -1,0 +1,41 @@
+{
+  "course_reference": "sofiacper/ETAI-Pipeline@a170b26b131659ec9b5aff6d818d21354c3930c2",
+  "comparison_key": "c284fe2329c1088b44649a4a7c4b46957dd9b9e2a1f4de16aafdf3947df93609",
+  "selection_metric": "roc_auc",
+  "metrics": [
+    "accuracy",
+    "balanced_accuracy",
+    "precision",
+    "recall",
+    "f1",
+    "fbeta_2",
+    "roc_auc",
+    "average_precision"
+  ],
+  "n_trials": 30,
+  "outer_folds": 5,
+  "inner_folds": 5,
+  "cv_seed": 42,
+  "tuning_seed": 42,
+  "reserved_test_evaluated": false,
+  "data_sha256": "6a747fd4a04d545976510401695587984a06662ea319b614fbf079b61201161a",
+  "completed_models": [
+    "gradient_boosting",
+    "adaboost",
+    "hist_gradient_boosting",
+    "oblique_random_forest",
+    "random_forest",
+    "decision_tree",
+    "logistic_regression",
+    "naive_bayes",
+    "dummy"
+  ],
+  "versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "optuna": "5.0.0",
+    "PyYAML": "6.0.3"
+  }
+}
