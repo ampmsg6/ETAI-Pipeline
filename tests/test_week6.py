@@ -85,6 +85,7 @@ class Week6Tests(unittest.TestCase):
 
     def test_ensembles_default_and_nested_tuning(self):
         config = load_config()
+        config["feature_selection"]["enabled"] = False
         rng = np.random.default_rng(42)
         X = pd.DataFrame({
             "age": rng.integers(18, 65, 80), "priors_count": rng.integers(0, 10, 80),

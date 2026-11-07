@@ -96,6 +96,7 @@ def main():
     if args.trials < 1 or args.parallel_folds < 1:
         parser.error("trials and parallel-folds must be positive")
     base = load_config()
+    base["feature_selection"]["enabled"] = False  # Week 7 predates learned selection.
     base["tuning"]["n_trials"] = args.trials
     base["cv"]["n_jobs"] = args.parallel_folds
     base["output"].update(results_dir=args.output_dir, scoreboard=args.scoreboard)

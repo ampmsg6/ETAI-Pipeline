@@ -63,6 +63,7 @@ class Week7Tests(unittest.TestCase):
 
     def test_new_models_fit_inside_the_existing_preprocessing_pipeline(self):
         config = load_config()
+        config["feature_selection"]["enabled"] = False
         X = pd.DataFrame({
             "age": np.arange(120) % 45 + 18, "priors_count": np.arange(120) % 8,
             "juv_fel_count": np.arange(120) % 2, "juv_misd_count": np.zeros(120),
@@ -108,6 +109,8 @@ class Week7Tests(unittest.TestCase):
 
     def test_gradient_boosting_no_tuning_writes_complete_week7_artifacts(self):
         config = load_config()
+        config["model"] = default_model_config("gradient_boosting")
+        config["feature_selection"]["enabled"] = False
         config["tuning"]["enabled"] = False
         with tempfile.TemporaryDirectory() as folder:
             config["output"] = {"results_dir": folder, "scoreboard": str(Path(folder) / "runs.csv")}

@@ -6,7 +6,7 @@ Antonio Gonçalves — 20260536
 
 This project predicts whether a person will be rearrested within two years (`two_year_recid`) using the COMPAS case dataset. The model uses age, sex, charge degree, and prior offense counts. It does not use `race` or COMPAS's own risk score as predictors. We keep those fields separately to check false-positive rates by race and compare with COMPAS. The [data dictionary](data/README.md) describes the columns.
 
-The current configuration runs gradient boosting and jointly tunes its tree count, learning rate, depth, minimum leaf size and subsampling with Optuna. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features use median imputation, categorical features use target encoding, and numeric features use robust scaling. The settings are in `config.yaml`.
+The current configuration runs XGBoost and jointly tunes its tree settings, regularisation and, when feature selection is enabled, the number of votes required to keep a feature. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features use median imputation and robust scaling; categorical features use target encoding. Preprocessing and selection are fitted inside every training fold. The settings are in `config.yaml`.
 
 ## Run the pipeline
 
@@ -36,9 +36,11 @@ python main.py --model logistic_regression --features priors_per_adult_year
 python main.py --model hist_gradient_boosting --trials 5
 python main.py --model naive_bayes --trials 5
 python main.py --model dummy
+python main.py --model xgboost --no-tuning --selection on
+python main.py --model xgboost --trials 5 --selection off
 ```
 
-`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. CLI overrides apply only to the current run. The full default budget is 30 trials, with five inner and five outer folds.
+`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. `--selection on|off` overrides learned feature selection. CLI overrides apply only to the current run. The full default budget is 30 trials, with five inner and five outer folds. On macOS, XGBoost may also require `brew install libomp`.
 
 ## Pipeline progress
 
@@ -50,6 +52,43 @@ python main.py --model dummy
 | 5 | Hyperparameter tuning | Seeded Optuna studies, search spaces for logistic regression and decision tree, nested CV, an optimism check, and final development-set tuning/refit. |
 | 6 | Ensembles and features | Oblique Random Forest and AdaBoost, ensemble search spaces, a corrected paired test, and separate nested-CV ablations of three fixed engineered features. |
 | 7 | Boosting and metrics | Gradient Boosting, HistGradientBoosting and Gaussian Naive Bayes; eight metrics, ROC-AUC selection, OOF probabilities and confusion matrices; a nine-model scoreboard with dummy floor, untuned and nested tuned scores. |
+| 8 | XGBoost and feature selection | XGBoost with nine tuned hyperparameters; fold-fitted `VoteSelector` between preprocessing and model; `min_votes` tuned jointly, temporary pipeline cache, selected-feature reports and paired nested-CV comparison with selection on/off. |
+
+## Week 8: XGBoost and feature selection
+
+The implementation follows `08_feature_selection.ipynb` and the [Week 8 course pipeline](https://github.com/sofiacper/ETAI-Pipeline/tree/7dc7713640fe3b97f16be6df6be67ce417f9d950). XGBoost adds regularisation within each tree through `gamma`, `min_child_weight`, `reg_alpha` and `reg_lambda`; its search space also covers tree count, learning rate, depth and row/column subsampling. We tune the tree count with nested CV, without using validation or test labels for early stopping. The existing fold-fitted imputation is retained for a consistent comparison.
+
+`VoteSelector` combines a 200-tree random forest, gradient boosting and L1 logistic regression (`C=0.01`). The trees vote for above-mean importance; logistic regression votes for nonzero coefficients. Selection is fitted after preprocessing and before the final classifier, inside each inner and outer training fold. With selection enabled, Optuna tunes `select__min_votes` from 1 to 3 alongside the nine XGBoost hyperparameters. A temporary `Pipeline(memory=...)` cache reuses fitted steps only for identical training data, labels and parameters; it is removed even if a run fails. The dummy floor has no feature selection.
+
+Both recipes use the same 5,771 development records, five outer folds, five inner folds, seeds 42 and 30 trials per study, followed by another 30-trial study for the final refit on development data. The corrected paired test uses selection-on minus selection-off ROC-AUC across the five outer folds, with validation/training ratio 1/4. The 1,443 reserved test records are not evaluated. This compares two specified tuning procedures; their later selection is not independently assessed on a final test set.
+
+### Results: 7 November 2026
+
+| XGBoost recipe | Untuned ROC-AUC | Tuned nested ROC-AUC | Final inputs | Dummy floor |
+|---|---:|---:|---:|---:|
+| Selection on | 0.7208 ± 0.0125 | 0.7260 ± 0.0129 | 2 of 10 | 0.5000 |
+| Selection off | 0.7245 ± 0.0184 | 0.7285 ± 0.0146 | 10 of 10 | 0.5000 |
+
+**Feature-selection conclusion.** Selection's paired mean change was −0.0025 ROC-AUC, with 2/5 fold wins and corrected t=−1.1116, p=0.3286. This comparison did not detect a difference between the recipes, but does not establish equivalence. The final selector chose `min_votes=2` and kept `numeric__age` and `numeric__priors_count`, both with unanimous votes, reducing the transformed inputs from ten to two. I keep selection enabled for the configured Week 8 model because the observed ranking scores are close and the smaller model is easier to describe, accepting its slightly lower observed mean and the extra training cost of the three voters.
+
+**B2: stability across folds.** The outer studies chose `min_votes` of **1, 1, 3, 1, 2**, keeping **2, 3, 2, 3, 2** features respectively. Age and prior count appeared in every outer model; the second and fourth also kept `categorical__age_cat`. The threshold varies while the core features stay stable, so these runs do not identify a uniquely best number of votes.
+
+Reproduce the submission with:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m scripts.compare_week8 --trials 30 --resume
+```
+
+The comparison writes both executions to `results/runs.csv` and publishes [scoreboard.csv](reports/week8/scoreboard.csv), [folds.csv](reports/week8/folds.csv), [all metrics](reports/week8/metrics.csv), [feature votes](reports/week8/features.csv), [final-study trials](reports/week8/trials.csv), [the corrected comparison](reports/week8/selection_comparison.csv), full text reports and exact configurations in [reports/week8](reports/week8). [metadata.json](reports/week8/metadata.json) records data/software identity, seeds and budget. Individual OOF probabilities stay locally in `results/week8/`, following the previous submissions. `requirements-lock.txt` records the installed dependency versions. `--resume` checks the recipe and complete result files before reusing a run.
+
+To run a short comparison separately from the submitted scoreboard:
+
+```powershell
+python -m scripts.compare_week8 --trials 5 --scoreboard results/week8_short/runs.csv --output-dir results/week8_short --publish-dir results/week8_short/tables
+```
+
+The optional B1 comparison of other selector methods is not included. The outer-fold tables do include B2's chosen `select__min_votes` and kept features. The Week 6 and Week 7 comparison scripts explicitly disable selection to preserve their original experimental recipes.
 
 ## Week 7: boosting, metrics and the scoreboard
 

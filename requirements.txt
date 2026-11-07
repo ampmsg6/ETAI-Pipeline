@@ -4,3 +4,4 @@ scikit-learn>=1.9
 scipy>=1.11
 PyYAML>=6.0
 optuna>=4.0
+xgboost>=2.0

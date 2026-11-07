@@ -75,9 +75,14 @@ def nested_cross_validate(pipeline, X, y, outer_cv, inner_cv, scorers: dict, sel
         train_score = scorers[selection_metric](best_pipeline, X_train, y_train)
         val_scores = {name: scorer(best_pipeline, X_val, y_val) for name, scorer in scorers.items()}
         oof_proba[val_idx] = positive_probabilities(best_pipeline, X_val)
+        selection_details = {}
+        if "select" in getattr(best_pipeline, "named_steps", {}):
+            names = best_pipeline.named_steps["prep"].get_feature_names_out()
+            kept = best_pipeline.named_steps["select"].get_feature_names_out(names)
+            selection_details = {"n_features": len(kept), "kept_features": ", ".join(kept)}
         rows.append({"fold": fold, "train": train_score, "validation": val_scores[selection_metric],
                      "gap": train_score - val_scores[selection_metric], **val_scores,
-                     "inner_best": study.best_value, **study.best_params})
+                     "inner_best": study.best_value, **study.best_params, **selection_details})
         print(f"  Outer fold {fold}: {selection_metric}={val_scores[selection_metric]:.4f}", flush=True)
     if not np.isfinite(oof_proba).all():
         raise ValueError("Outer CV must validate every row exactly once")

@@ -129,6 +129,7 @@ def main():
     if args.parallel_folds < 1:
         parser.error("--parallel-folds must be at least 1")
     base = load_config()
+    base["feature_selection"]["enabled"] = False  # Preserve the Week 6 ablation recipes.
     # Retain the Week 6 accuracy objective after the Week 7 config migration.
     base["cv"].update(metrics=["accuracy"], selection_metric="accuracy", scoring="accuracy")
     base["output"]["scoreboard"] = str(Path(args.output_dir) / "runs.csv")
