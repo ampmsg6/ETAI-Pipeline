@@ -63,12 +63,20 @@ def clean_dataset(df, config):
         if column in out:
             out[column] = pd.to_numeric(out[column], errors="coerce")
 
-    for column, mapping in config["data"]["canonical_maps"].items():
+    mappings = config["data"].get("canonical_maps", {})
+    # Missing-token cleanup also applies to categories with no spelling map.
+    categorical_columns = dict.fromkeys([
+        *mappings, *config["preprocessing"]["categorical_features"],
+    ])
+    for column in categorical_columns:
         if column not in out:
             continue
+        mapping = mappings.get(column, {})
         values = out[column].astype("string").str.strip()
         values = values.mask(values.str.lower().isin(placeholders))
-        out[column] = values.str.lower().map(mapping).fillna(values).astype("object")
+        canonical = values.str.lower().map(mapping).fillna(values).astype("object")
+        # SimpleImputer's object-array mask expects np.nan, not nullable pd.NA.
+        out[column] = canonical.where(canonical.notna(), np.nan)
 
     out, _ = flag_invalid_values(out, config["diagnostics"]["validity_rules"])
     # The total is discarded only after using it to recover a missing count.
@@ -126,6 +134,8 @@ def add_engineered_features(df, features=ENGINEERED_FEATURES):
     if unknown:
         raise ValueError(f"Unknown engineered features: {sorted(unknown)}")
     out = df.copy()
+    if not features:
+        return out
     adult_years = (out["age"] - 17).clip(lower=1)
     if "priors_per_adult_year" in features:
         out["priors_per_adult_year"] = out["priors_count"] / adult_years
@@ -157,7 +167,8 @@ def split_features_target(df, config):
     data = config["data"]
     target = data["target"]
     y = out[target].copy() if target in out else None
-    extras_columns = [c for c in [data["sensitive_attr"], "score_text"] if c in out]
+    reference_column = (config.get("audit", {}).get("reference") or {}).get("column")
+    extras_columns = list(dict.fromkeys(c for c in [data["sensitive_attr"], reference_column] if c in out))
     extras = out[extras_columns].copy()
     feature_columns = (
         config["preprocessing"]["numeric_features"]

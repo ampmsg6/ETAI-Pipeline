@@ -87,11 +87,12 @@ class Week7Tests(unittest.TestCase):
         y = pd.Series([0, 0, 1, 1])
         extras = pd.DataFrame({"race": ["A", "A", None, "B"], "score_text": ["Low", None, "High", "Medium"]})
         probabilities = np.array([0.6, 0.2, 0.8, 0.7])
-        report = fairness_report(y, probabilities, extras)
+        reference = load_config()["audit"]["reference"]
+        report = fairness_report(y, probabilities, extras, reference=reference)
         self.assertIn("A                    FPR = 0.50  (n=2)", report)
         self.assertIn("A                    FPR = 0.00  (n=1)", report)
         self.assertIn("predicted 1", oof_classification_report(y, probabilities, threshold=0.75))
-        self.assertNotEqual(report, fairness_report(y, probabilities, extras, threshold=0.75))
+        self.assertNotEqual(report, fairness_report(y, probabilities, extras, threshold=0.75, reference=reference))
 
     def test_scoreboard_append_and_experiment_identity(self):
         with tempfile.TemporaryDirectory() as folder:

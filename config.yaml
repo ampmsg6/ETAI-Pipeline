@@ -137,3 +137,10 @@ tuning:
 output:
   results_dir: "results"
   scoreboard: "results/runs.csv"
+
+audit:
+  negative_description: "(share of people who did NOT reoffend, but were predicted to)"
+  reference:
+    column: score_text
+    label: "COMPAS's own score"
+    mapping: {Low: 0, Medium: 1, High: 1}

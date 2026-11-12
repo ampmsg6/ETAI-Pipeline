@@ -1,4 +1,4 @@
-"""Week 8: XGBoost and fold-fitted feature selection with nested CV."""
+"""Configurable binary pipeline: COMPAS or Adult, with development-only evaluation."""
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +20,7 @@ from src.evaluate import (build_scorers, cross_validate_pipeline, cv_report, oof
                           fairness_report)
 from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
 from src.results import comparison_key, save_run, save_scores
+from src.predict import predict_new_data
 
 
 def load_config(path: str = "config.yaml") -> dict:
@@ -126,7 +127,10 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     for name in metrics:
         print(f"  {name:<18s} {final_scores[name].mean():.3f} ± {final_scores[name].std(ddof=1):.3f}")
     report += "\n\n" + oof_classification_report(y_dev, oof_proba)
-    report += "\n" + fairness_report(y_dev, oof_proba, extras_dev, sensitive_attr=config["data"]["sensitive_attr"])
+    audit = config.get("audit") or {}
+    report += "\n" + fairness_report(y_dev, oof_proba, extras_dev, sensitive_attr=config["data"]["sensitive_attr"],
+                                    reference=audit.get("reference"),
+                                    negative_description=audit.get("negative_description"))
 
     report += f"\nOOF source: {'nested CV' if tuning_enabled else 'default CV'}; threshold: 0.5\n"
     pipeline.fit(X_dev, y_dev)
@@ -143,6 +147,10 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     if selection_enabled:
         feature_table["votes"] = pipeline.named_steps["select"].votes_
     report += "\n" + refit + "\n"
+    prediction_path = None
+    if config.get("prediction"):
+        prediction_path = predict_new_data(pipeline, config)
+        report += f"\nUnlabelled predictions saved to: {prediction_path}\n"
 
     row = {"comparison_key": comparison_key(config), "run": run, "data": config["data"]["path"], "model": model_type, "tuned": tuning_enabled,
            "encoder": config["preprocessing"]["encoder"], "scaler": config["preprocessing"]["scaler"],
@@ -184,11 +192,11 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     return {"model": pipeline, "default_scores": fold_scores, "nested_scores": nested_scores,
             "study": study, "report_path": path, "oof_probabilities": oof_proba,
             "oof_predictions": (oof_proba >= 0.5).astype(int), "score_row": row,
-            "kept_features": kept_features.tolist()}
+            "kept_features": kept_features.tolist(), "prediction_path": prediction_path}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Week 8 COMPAS pipeline")
+    parser = argparse.ArgumentParser(description="Binary predictive pipeline (COMPAS by default)")
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--model", choices=list(_MODELS))
     parser.add_argument("--trials", type=int)

@@ -111,25 +111,31 @@ def oof_classification_report(y_true, oof_proba, threshold: float = 0.5) -> str:
 
 
 def fairness_report(y_true, oof_proba, extras: pd.DataFrame, sensitive_attr: str = "race",
-                    threshold: float = 0.5, dataset_label="development set, out-of-fold") -> str:
+                    threshold: float = 0.5, dataset_label="development set, out-of-fold",
+                    reference: dict | None = None, negative_description: str | None = None) -> str:
     """
-    False positive rate (share of people who did not reoffend but were predicted to) per
-    group of `sensitive_attr`, for the model's out-of-fold predictions and for COMPAS's own
-    score (`score_text` other than "Low" counts as predicted to reoffend), on the same rows.
+    False positive rate per sensitive group for binary 0/1 outcomes. An optional
+    configured reference score is compared on rows with a known reference label.
     Rows with an unknown group are reported as "unknown". A simple check, not a full audit.
     """
     df = extras.copy()
     df[sensitive_attr] = df[sensitive_attr].astype(object).fillna("unknown")
     df["y_true"] = pd.Series(y_true).values
     df["y_pred_model"] = (oof_proba >= threshold).astype(int)
-    df["y_pred_compas"] = df["score_text"].map({"Low": 0, "Medium": 1, "High": 1})
+    comparisons = [("Our model", "y_pred_model")]
+    if reference:
+        column = reference["column"]
+        if column not in df:
+            raise ValueError(f"Configured audit reference column is missing: {column}")
+        df["y_pred_reference"] = df[column].map(reference["mapping"])
+        comparisons.append((reference.get("label", column), "y_pred_reference"))
 
     lines = [
         f"False positive rate by {sensitive_attr} ({dataset_label}; threshold {threshold})",
-        "(share of people who did NOT reoffend, but were predicted to)",
+        negative_description or "(share of true class 0 rows predicted as class 1)",
         "",
     ]
-    for label, col in [("Our model", "y_pred_model"), ("COMPAS's own score", "y_pred_compas")]:
+    for label, col in comparisons:
         lines.append(f"  {label}:")
         for group, g in df.dropna(subset=[col]).groupby(sensitive_attr):
             negatives = g[g["y_true"] == 0]
