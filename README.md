@@ -8,6 +8,8 @@ This project predicts whether a person will be rearrested within two years (`two
 
 The current configuration runs XGBoost and jointly tunes its tree settings, regularisation and, when feature selection is enabled, the number of votes required to keep a feature. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features use median imputation and robust scaling; categorical features use target encoding. Preprocessing and selection are fitted inside every training fold. The settings are in `config.yaml`.
 
+Week 9 adds Adult income as a second problem, using `config_adult.yaml`. The default `config.yaml` still runs COMPAS. The Adult configuration and its predictions are described in [Beyond COMPAS](#beyond-compas-option-a--adult-income).
+
 ## Run the pipeline
 
 From the project root, create an environment and install the dependencies:
@@ -53,6 +55,68 @@ python main.py --model xgboost --trials 5 --selection off
 | 6 | Ensembles and features | Oblique Random Forest and AdaBoost, ensemble search spaces, a corrected paired test, and separate nested-CV ablations of three fixed engineered features. |
 | 7 | Boosting and metrics | Gradient Boosting, HistGradientBoosting and Gaussian Naive Bayes; eight metrics, ROC-AUC selection, OOF probabilities and confusion matrices; a nine-model scoreboard with dummy floor, untuned and nested tuned scores. |
 | 8 | XGBoost and feature selection | XGBoost with nine tuned hyperparameters; fold-fitted `VoteSelector` between preprocessing and model; `min_votes` tuned jointly, temporary pipeline cache, selected-feature reports and paired nested-CV comparison with selection on/off. |
+| 9 | Beyond COMPAS: Adult income | Separate Adult config and scoreboard; generic categorical missing-token cleanup and optional reference-score audit; paired tuned runs, selected-feature evidence and one prediction per unlabelled input row. COMPAS metrics and OOF probabilities verified unchanged. |
+
+## Beyond COMPAS (option A — Adult income)
+
+The Week 9 notebook, `09_beyond_compas.ipynb`, asks us to choose one extension. This submission chooses **option A**, predicting whether annual income exceeds USD 50,000 using the supplied Adult data. The [data card](data/ADULT_README.md) documents its 6,000 labelled training rows, 2,000 unlabelled new rows and 25 undocumented attributes. The professor's [public pipeline](https://github.com/sofiacper/ETAI-Pipeline/tree/7dc7713640fe3b97f16be6df6be67ce417f9d950) still contains Week 8's implementation when checked on 12 November 2026; Week 9's local notebook supplies the assignment rather than replacement pipeline code.
+
+### Run Adult and generate predictions
+
+```powershell
+python main.py --config config_adult.yaml
+```
+
+This uses the same pipeline entry point as COMPAS, with the existing `--config` argument. It reserves 1,200 labelled rows, evaluates on 4,800 development rows, refits on those development rows and then writes [predictions/adult_new_predictions.csv](predictions/adult_new_predictions.csv). Its columns are `id`, `probability` (P(income >50K)) and `prediction` (1 when probability ≥0.5); there are 2,000 rows in the original input order. New data receives the same cleaning, imputation, encoding, scaling and selection as training, with no refitting and no row deletion. The reserved labelled rows remain unused for evaluation and final fitting.
+
+For quick checks, use `python main.py --config config_adult.yaml --no-tuning`. The final submission comparison uses tuning:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m scripts.compare_week9 --trials 30 --resume
+```
+
+The comparison runs XGBoost with selection on and off, publishes the paired folds and corrected test, checks all three course targets in the configured final recipe, and generates the predictions from that run's saved final estimator. Each recipe uses the same stratified five outer folds, five inner folds, seeds 42 and 30 trials per study, plus a final 30-trial study on all development rows. A temporary cache keeps learned preprocessing and selection inside the folds while avoiding repeated identical fits. Adult runs go to `results/adult/`, including its own `runs.csv`; the COMPAS scoreboard stays separate. Full fitted-model checkpoints and individual OOF probabilities remain local, while [reports/week9](reports/week9) contains the submission evidence.
+
+### What broke, why, and the fix
+
+| Assumption exposed by Adult | Why it failed | Fix shared by both datasets |
+|---|---|---|
+| Only categories with a spelling map needed cleaning | `workclass`, `occupation` and `native_country` have no such map, so `?` could remain a real category | Clean every configured categorical feature as well as mapped audit columns; category mapping is optional. |
+| A missing categorical value always behaved like `np.nan` | Nullable pandas `pd.NA` in an object array caused `SimpleImputer` to raise an ambiguous-boolean error | Convert missing category values to `np.nan` after normalization. |
+| Every fairness report had a COMPAS score | Adult has no `score_text`, so the report could not run | Make external reference scores and their label mapping optional config settings; gather audit fields from that config. |
+| An empty feature-engineering plan could still read COMPAS inputs | The helper accessed `age` before checking whether any formula was requested | Return the unchanged frame when the engineering list is empty. |
+| The run ended at final refitting | There was no shared output path for new, unlabelled rows | Add config-driven inference using the fitted whole pipeline, original IDs, fixed threshold 0.5 and no deduplication. |
+
+The COMPAS-specific recovery and category-consistency rules were already guarded by the presence of their required columns and are unchanged. Adult's validity bounds and feature choices live in its config. A before/after regression check against commit `088ef2b` found identical cleaned values/missingness, model inputs, all eight metrics in all five default CV folds, OOF probabilities and final kept features; [compas_regression.json](reports/week9/compas_regression.json) records that check. The check uses the unchanged Week 8 XGBoost parameters with tuning off; it does not claim a fresh rerun of Week 8's nested studies.
+
+### Adult cleaning and feature choices
+
+The course's expected missing counts are **379 workclass, 381 occupation and 86 native_country**, confirmed after cleaning. Workclass and occupation get separate missingness indicators because the supplied data card reports an association between their missingness and income; native country and the six partly missing numeric `v` columns are imputed without indicators. Numeric medians, categorical modes and target encodings are learned only within training folds. The target encoder cross-fits its training encodings and maps unfamiliar categories to its learned prior.
+
+All **74 valid 17-year-olds** and **29 top-coded capital gains of 99999** are retained. `education_num` preserves education's order, so the redundant `education` text is dropped; `fnlwgt` is excluded because it represents sampling weight rather than a person's characteristic. `id` and the target never enter the features. The 23 numeric and 12 categorical predictors include **all 25 `v` attributes**, with two missingness flags bringing the transformed input count to 37 before selection; no undocumented attribute is removed by hand.
+
+I audit **sex** and exclude both sex and race from the predictors to avoid using either protected attribute directly for this exercise. Features such as relationship and occupation can still act as proxies, so excluding the protected columns alone does not establish fairness. The text reports show OOF false-positive rates by sex, defined as people truly earning ≤50K who were predicted to earn >50K; the configured income wording replaces the recidivism wording and no COMPAS reference is invented.
+
+### Results: 12 November 2026
+
+Values are development-fold means ± sample standard deviations. All three targets apply to the same row, with F1 calculated for class 1 at threshold 0.5. Fixed-parameter rows use ordinary CV; tuned rows use the outer folds of nested CV.
+
+| Adult XGBoost recipe | ROC-AUC | Accuracy | F1 |
+|---|---:|---:|---:|
+| Selection on, fixed parameters | 0.9133 ± 0.0163 | 0.8638 ± 0.0112 | 0.6857 ± 0.0304 |
+| **Selection on, tuned — configured final recipe** | **0.9092 ± 0.0162** | **0.8571 ± 0.0109** | **0.6657 ± 0.0288** |
+| Selection off, fixed parameters | 0.9051 ± 0.0183 | 0.8579 ± 0.0174 | 0.6634 ± 0.0471 |
+| Selection off, tuned | 0.9073 ± 0.0156 | 0.8600 ± 0.0159 | 0.6669 ± 0.0404 |
+| Course targets | ≥0.9000 | ≥0.8550 | ≥0.6600 |
+
+Both tuned recipes meet every target. Their ROC-AUC dummy floor is 0.5000; predicting ≤50K for everyone has about 0.761 accuracy and zero positive-class F1 on these development folds. The corrected paired test on the **tuned** outer scores gives selection-on minus selection-off **+0.001949 ROC-AUC**, 5/5 fold wins, t=1.6939 and **p=0.1655** (validation/training ratio 1/4). This does not establish a performance gain or equivalence; the configured recipe keeps selection for its smaller input set while meeting the assignment's three thresholds. Tuning's mean scores for that recipe were below the fixed-parameter scores, so these experiments do not support a claim that tuning automatically improved it.
+
+The final selector chose `min_votes=1` and retained **8 of 37** transformed inputs: **age, education_num, capital_gain, capital_loss, hours_per_week, marital_status, occupation and relationship**. None of `v01`–`v25`, either missingness flag, workclass or native_country was retained by the final selector. The outer folds selected vote thresholds **2, 2, 1, 2, 2**, keeping **8, 8, 8, 8, 7** features respectively; the last omitted marital_status. The [feature table](reports/week9/features.csv) contains votes and support for every transformed input, including all 25 `v` attributes.
+
+**Reflection.** The hardest assumption was that a categorical column only needed placeholder cleanup when it also had a spelling map, because the remaining `?` values looked like valid categories. Cleaning every configured category, preserving Adult's valid extremes and fitting all learned steps inside the folds made the existing estimator usable on the new problem. The fixed-parameter XGBoost recipe already cleared the three targets, and the nested tuned result also passed them without using the reserved rows. I kept selection enabled because it reduced 37 inputs to eight and still met every target, while the corrected comparison did not establish a ROC-AUC advantage.
+
+The [target checks](reports/week9/target_checks.csv), [scoreboard](reports/week9/scoreboard.csv), [folds](reports/week9/folds.csv), [all metrics](reports/week9/metrics.csv), [corrected comparison](reports/week9/selection_comparison.csv), [final-study trials](reports/week9/trials.csv) and full text/config reports provide the exact values. [metadata.json](reports/week9/metadata.json) identifies the selected run that produced the predictions, the input/output hashes, data/software versions, seeds, folds and trial budget. The prediction file contains **2,000 rows**, preserving every input ID and its order. The 17 automated tests, actual CLI prediction check and independent OOF/prediction verification are recorded in [validation.json](reports/week9/validation.json).
 
 ## Week 8: XGBoost and feature selection
 

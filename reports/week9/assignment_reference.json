@@ -1,0 +1,13 @@
+{
+  "notebook": "09_beyond_compas.ipynb",
+  "sha256": "769bdf8a02f9c128d672b3bea90edac656f058fbcf5b11dc8aa066e4249e266a",
+  "chosen_option": "A",
+  "verified_date": "2026-11-12",
+  "public_course_commit": "7dc7713640fe3b97f16be6df6be67ce417f9d950",
+  "required_targets": {
+    "roc_auc": 0.9,
+    "accuracy": 0.855,
+    "f1": 0.66
+  },
+  "required_new_prediction_rows": 2000
+}

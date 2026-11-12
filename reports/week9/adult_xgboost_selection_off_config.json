@@ -1,0 +1,236 @@
+{
+  "data": {
+    "path": "data/adult_train.csv",
+    "target": "income_over_50k",
+    "sensitive_attr": "sex",
+    "placeholder_tokens": [
+      "?",
+      "",
+      "n/a",
+      "na"
+    ],
+    "numeric_columns": [
+      "age",
+      "education_num",
+      "capital_gain",
+      "capital_loss",
+      "hours_per_week",
+      "v01",
+      "v02",
+      "v03",
+      "v04",
+      "v05",
+      "v06",
+      "v07",
+      "v08",
+      "v09",
+      "v10",
+      "v11",
+      "v12",
+      "v13",
+      "v14",
+      "v15",
+      "v16",
+      "v17",
+      "v18"
+    ],
+    "redundant_columns": [
+      "education",
+      "fnlwgt"
+    ],
+    "canonical_maps": {}
+  },
+  "diagnostics": {
+    "id_column": "id",
+    "validity_rules": {
+      "age": {
+        "min": 17,
+        "max": 90
+      },
+      "education_num": {
+        "min": 1,
+        "max": 16
+      },
+      "capital_gain": {
+        "min": 0
+      },
+      "capital_loss": {
+        "min": 0
+      },
+      "hours_per_week": {
+        "min": 1,
+        "max": 99
+      }
+    }
+  },
+  "preprocessing": {
+    "engineered_features": [],
+    "encoder": "target",
+    "encoder_random_state": 42,
+    "scaler": "robust",
+    "numeric_imputer": "median",
+    "numeric_features": [
+      "age",
+      "education_num",
+      "capital_gain",
+      "capital_loss",
+      "hours_per_week",
+      "v01",
+      "v02",
+      "v03",
+      "v04",
+      "v05",
+      "v06",
+      "v07",
+      "v08",
+      "v09",
+      "v10",
+      "v11",
+      "v12",
+      "v13",
+      "v14",
+      "v15",
+      "v16",
+      "v17",
+      "v18"
+    ],
+    "categorical_features": [
+      "workclass",
+      "marital_status",
+      "occupation",
+      "relationship",
+      "native_country",
+      "v19",
+      "v20",
+      "v21",
+      "v22",
+      "v23",
+      "v24",
+      "v25"
+    ],
+    "imputation": {
+      "workclass": {
+        "strategy": "most_frequent",
+        "indicator": true
+      },
+      "occupation": {
+        "strategy": "most_frequent",
+        "indicator": true
+      },
+      "native_country": {
+        "strategy": "most_frequent",
+        "indicator": false
+      }
+    }
+  },
+  "test_set": {
+    "size": 0.2,
+    "random_state": 42
+  },
+  "cv": {
+    "n_splits": 5,
+    "shuffle": true,
+    "random_state": 42,
+    "metrics": [
+      "accuracy",
+      "balanced_accuracy",
+      "precision",
+      "recall",
+      "f1",
+      "fbeta_2",
+      "roc_auc",
+      "average_precision"
+    ],
+    "selection_metric": "roc_auc",
+    "n_jobs": 5
+  },
+  "model": {
+    "type": "xgboost",
+    "params": {
+      "n_estimators": 300,
+      "learning_rate": 0.05,
+      "max_depth": 4,
+      "random_state": 42,
+      "n_jobs": 1
+    }
+  },
+  "feature_selection": {
+    "enabled": false,
+    "min_votes": 2,
+    "random_state": 42,
+    "search_space": {
+      "select__min_votes": {
+        "type": "int",
+        "low": 1,
+        "high": 3
+      }
+    }
+  },
+  "tuning": {
+    "enabled": true,
+    "n_trials": 30,
+    "n_splits": 5,
+    "random_state": 42,
+    "search_spaces": {
+      "xgboost": {
+        "model__n_estimators": {
+          "type": "int",
+          "low": 50,
+          "high": 600,
+          "log": true
+        },
+        "model__learning_rate": {
+          "type": "float",
+          "low": 0.01,
+          "high": 0.3,
+          "log": true
+        },
+        "model__max_depth": {
+          "type": "int",
+          "low": 1,
+          "high": 8
+        },
+        "model__min_child_weight": {
+          "type": "float",
+          "low": 1.0,
+          "high": 50.0,
+          "log": true
+        },
+        "model__subsample": {
+          "type": "float",
+          "low": 0.5,
+          "high": 1.0
+        },
+        "model__colsample_bytree": {
+          "type": "float",
+          "low": 0.5,
+          "high": 1.0
+        },
+        "model__reg_lambda": {
+          "type": "float",
+          "low": 0.01,
+          "high": 10.0,
+          "log": true
+        },
+        "model__reg_alpha": {
+          "type": "float",
+          "low": 0.001,
+          "high": 10.0,
+          "log": true
+        },
+        "model__gamma": {
+          "type": "float",
+          "low": 0.0,
+          "high": 5.0
+        }
+      }
+    }
+  },
+  "audit": {
+    "negative_description": "(share of people earning <=50K predicted to earn >50K)"
+  },
+  "output": {
+    "results_dir": "results/adult",
+    "scoreboard": "results/adult/runs.csv"
+  }
+}

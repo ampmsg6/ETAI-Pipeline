@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-12",
+  "unit_tests_passed": 17,
+  "all_three_targets_in_same_tuned_run": true,
+  "both_tuned_recipes_pass_targets": true,
+  "two_30_trial_recipes": true,
+  "published_fold_rows": 20,
+  "published_metric_rows": 32,
+  "published_final_study_trials": 60,
+  "outer_roc_auc_accuracy_f1_recomputed_from_oof": true,
+  "reserved_test_rows_absent_from_oof": true,
+  "corrected_test_recomputed": true,
+  "new_prediction_rows": 2000,
+  "new_prediction_ids_and_order_preserved": true,
+  "new_predictions_match_selected_fitted_model": true,
+  "prediction_comparison": "exact CSV roundtrip in model float32 dtype",
+  "threshold": 0.5,
+  "metadata_hashes_verified": true,
+  "actual_main_cli_prediction_check_passed": true,
+  "resume_checks_passed": true,
+  "compas_scoreboard_unchanged": true,
+  "compas_regression": "compas_regression.json"
+}

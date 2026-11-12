@@ -1,0 +1,2 @@
+recipe_a,recipe_b,mean_diff,wins,t,p_value
+adult_xgboost_selection_on,adult_xgboost_selection_off,0.0019490071975734047,5/5,1.6938931478105477,0.16553558063555884

@@ -1,0 +1,7 @@
+recipe,metric,target,nested_mean,passed
+adult_xgboost_selection_on,roc_auc,0.9,0.9092031820661252,True
+adult_xgboost_selection_on,accuracy,0.855,0.8570833333333333,True
+adult_xgboost_selection_on,f1,0.66,0.6656534771691274,True
+adult_xgboost_selection_off,roc_auc,0.9,0.907254174868552,True
+adult_xgboost_selection_off,accuracy,0.855,0.86,True
+adult_xgboost_selection_off,f1,0.66,0.6668709836162586,True

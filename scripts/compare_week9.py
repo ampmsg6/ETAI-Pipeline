@@ -15,7 +15,7 @@ from main import load_config, run_pipeline
 from scripts.compare_week8 import export_tables, matching_run
 from src.data import load_data
 from src.predict import predict_new_data
-from src.preprocessing import clean_dataset
+from src.preprocessing import clean_dataset, drop_duplicate_rows
 
 
 TARGETS = {"roc_auc": 0.90, "accuracy": 0.855, "f1": 0.66}
@@ -76,12 +76,16 @@ def main():
     # This checkpoint was produced locally by the matching completed run above.
     pipeline = joblib.load(model_path)
     predictions_path = predict_new_data(pipeline, chosen_config)
-    raw, clean = load_data(base["data"]["path"]), clean_dataset(load_data(base["data"]["path"]), base)
+    raw = load_data(base["data"]["path"])
+    clean = clean_dataset(raw, base)
+    development_rows = len(pd.read_csv(Path(chosen["report_path"]).with_suffix("").as_posix() + "_oof.csv"))
+    labelled_rows = len(drop_duplicate_rows(clean, base["diagnostics"].get("id_column")))
     metadata_path = folder / "metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     metadata.update({
         "assignment": "09_beyond_compas.ipynb, option A",
-        "training_rows": len(raw), "development_rows": 4800, "reserved_rows": 1200,
+        "training_rows": len(raw), "development_rows": development_rows,
+        "reserved_rows": labelled_rows - development_rows,
         "target": base["data"]["target"], "sensitive_attribute": base["data"]["sensitive_attr"],
         "excluded_protected_features": ["sex", "race"],
         "cleaned_missing_counts": {name: int(clean[name].isna().sum())
@@ -92,7 +96,8 @@ def main():
         "predictions_path": predictions_path, "prediction_rows": len(pd.read_csv(predictions_path)),
         "prediction_sha256": hashlib.sha256(Path(predictions_path).read_bytes()).hexdigest(),
         "prediction_input_sha256": hashlib.sha256(Path(prediction["input_path"]).read_bytes()).hexdigest(),
-        "implementation_sha256": {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+        "implementation_hash_normalization": "UTF-8 text with LF newlines",
+        "implementation_sha256": {str(path): hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
                                   for path in [Path("main.py"), *sorted(Path("src").glob("*.py"))]},
     })
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")

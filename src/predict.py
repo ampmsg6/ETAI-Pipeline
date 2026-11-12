@@ -26,6 +26,6 @@ def predict_new_data(pipeline, config: dict) -> str:
         raise ValueError("Prediction must preserve the number of input rows")
     path = Path(settings["output_path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(path, index=False)
+    result.to_csv(path, index=False, lineterminator="\n")
     print(f"Predictions: {len(result)} input rows -> {len(result)} output rows: {path}")
     return str(path)

@@ -1,0 +1,61 @@
+{
+  "course_reference": "sofiacper/ETAI-Pipeline@7dc7713640fe3b97f16be6df6be67ce417f9d950",
+  "comparison_key": "5cc7c29dfd8389799670fe0a0d09b9c9a8363351d89954e8c9da12cdd5f3691c",
+  "selection_metric": "roc_auc",
+  "n_trials": 30,
+  "outer_folds": 5,
+  "inner_folds": 5,
+  "cv_seed": 42,
+  "tuning_seed": 42,
+  "reserved_test_evaluated": false,
+  "data_sha256": "a2de029f33e1f1237e441fcb0028649ebba3cedac970fc4f169e0d72324d286b",
+  "recipes": [
+    "adult_xgboost_selection_on",
+    "adult_xgboost_selection_off"
+  ],
+  "versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "optuna": "5.0.0",
+    "PyYAML": "6.0.3",
+    "xgboost": "3.4.1"
+  },
+  "assignment": "09_beyond_compas.ipynb, option A",
+  "training_rows": 6000,
+  "development_rows": 4800,
+  "reserved_rows": 1200,
+  "target": "income_over_50k",
+  "sensitive_attribute": "sex",
+  "excluded_protected_features": [
+    "sex",
+    "race"
+  ],
+  "cleaned_missing_counts": {
+    "workclass": 379,
+    "occupation": 381,
+    "native_country": 86
+  },
+  "preserved_age_17_rows": 74,
+  "preserved_capital_gain_99999_rows": 29,
+  "selected_recipe": "adult_xgboost_selection_on",
+  "selected_run": "20261112_102938_606504",
+  "predictions_path": "predictions\\adult_new_predictions.csv",
+  "prediction_rows": 2000,
+  "prediction_sha256": "43ffb15e2ae64edfa04044d109b2c0f413f3209dd33f4addb2664f7103fd62c1",
+  "prediction_input_sha256": "3dffdf81b28f7b4cbe0d66c902d59f0a50decfc87af287a2e09c26467052ea96",
+  "implementation_hash_normalization": "UTF-8 text with LF newlines",
+  "implementation_sha256": {
+    "main.py": "f15cc0f4d58b7e9bf4ed226c973f6980f30ca46bb18e638b883bf11acdcf8b80",
+    "src\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src\\data.py": "7501dfafdf6318a20410b5afaec74734acf5e490b31ca808ad2d811f9d36b724",
+    "src\\data_diagnostics.py": "d849d074dd6e6cc6ec72047baa1b08701bbebe75349475db4507a3ed38795eb8",
+    "src\\evaluate.py": "da21a8503675c80640a05a1f5cf37a2fc095b870462b8d5c0541c71544135ce7",
+    "src\\model.py": "4e987431bb8556ce70805f93cd1df50b673aad456b01aa2199d5df3846393dcd",
+    "src\\predict.py": "729691c0ab01e2210fc491da649e2534235a1e5781f6a0006fbb65ab012d24e8",
+    "src\\preprocessing.py": "b6d46beafc9bcd1754eaf6065cd666c6de4e268ae311f46376f939968993ac97",
+    "src\\results.py": "70283cf0588e002274f910d08b03f6753e19c3e9ba8ae05181e85acf21014b16",
+    "src\\tuning.py": "1dac96dab40dfa45c77bd7cda4eaa9b21aa02b79b4262677cf1f343490cecca5"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "reference_commit": "088ef2bd1d546d4105225e0820290dc9790dd52f",
+  "cleaned_values_and_missingness_identical": true,
+  "features_target_audit_values_identical": true,
+  "five_fold_all_metrics_identical": true,
+  "oof_probabilities_identical": true,
+  "selected_features_identical": true,
+  "reference_tuning_enabled": false,
+  "reference_model": "xgboost",
+  "n_development_rows": 5771,
+  "n_reserved_rows": 1443,
+  "reserved_test_evaluated": false,
+  "mean_roc_auc": 0.7208230461132321
+}
