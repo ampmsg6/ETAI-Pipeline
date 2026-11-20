@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.impute import IterativeImputer, KNNImputer, SimpleImputer
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
@@ -14,6 +16,41 @@ from sklearn.preprocessing import (
 from src.data_diagnostics import (
     flag_invalid_values, inconsistent_age_category, inconsistent_score_category,
 )
+
+
+# Every imputer learns only from numeric inputs, inside each training fold.
+_NUMERIC_IMPUTERS = {
+    "median": lambda cfg, seed: SimpleImputer(strategy="median", keep_empty_features=True),
+    "mean": lambda cfg, seed: SimpleImputer(strategy="mean", keep_empty_features=True),
+    "knn": lambda cfg, seed: KNNImputer(n_neighbors=cfg.get("n_neighbors", 5), keep_empty_features=True),
+    "iterative": lambda cfg, seed: IterativeImputer(
+        max_iter=cfg.get("max_iter", 10), random_state=seed, keep_empty_features=True),
+    "random_forest": lambda cfg, seed: IterativeImputer(
+        estimator=RandomForestRegressor(n_estimators=cfg.get("n_estimators", 50),
+                                        min_samples_leaf=5, random_state=seed, n_jobs=1),
+        max_iter=cfg.get("max_iter", 10), random_state=seed, keep_empty_features=True),
+    # Retained for the earlier preprocessing experiments.
+    "constant": lambda cfg, seed: SimpleImputer(
+        strategy="constant", fill_value=cfg.get("fill_value", 0), keep_empty_features=True),
+}
+
+
+def numeric_imputation_settings(config):
+    """Course settings, with the explicit legacy overrides used by Weeks 3–4."""
+    options = config["preprocessing"]
+    settings = dict(options.get("imputation", {}))
+    strategy = options.get("numeric_imputer", settings.get("numeric_strategy", "median"))
+    if strategy not in _NUMERIC_IMPUTERS:
+        raise ValueError(f"Unknown numeric_strategy: {strategy}. Options: {list(_NUMERIC_IMPUTERS)}")
+    settings.setdefault("n_neighbors", options.get("knn_neighbors", 5))
+    settings.setdefault("fill_value", options.get("numeric_fill_value", 0))
+    return strategy, settings
+
+
+def missingness_sources(config):
+    """Keep the per-column indicator plans alongside the new imputer settings."""
+    return [column for column, plan in config["preprocessing"].get("imputation", {}).items()
+            if isinstance(plan, dict) and plan.get("indicator")]
 
 
 class CountEncoder(BaseEstimator, TransformerMixin):
@@ -113,8 +150,8 @@ def drop_duplicate_rows(df, id_column=None):
 
 def add_missingness_indicators(df, config):
     out = df.copy()
-    for column, plan in config["preprocessing"]["imputation"].items():
-        if plan.get("indicator") and column in out:
+    for column in missingness_sources(config):
+        if column in out:
             out[f"{column}_was_missing"] = out[column].isna().astype(int)
     return out
 
@@ -173,7 +210,7 @@ def split_features_target(df, config):
     feature_columns = (
         config["preprocessing"]["numeric_features"]
         + config["preprocessing"]["categorical_features"]
-        + [f"{c}_was_missing" for c, plan in config["preprocessing"]["imputation"].items() if plan.get("indicator")]
+        + [f"{c}_was_missing" for c in missingness_sources(config)]
     )
     return out[feature_columns].copy(), y, extras
 
@@ -193,11 +230,8 @@ def split_dev_test(X, y, extras, test_size, random_state):
 
 def build_preprocessor(config):
     options = config["preprocessing"]
-    imputers = {
-        "median": SimpleImputer(strategy="median"),
-        "knn": KNNImputer(n_neighbors=options.get("knn_neighbors", 5)),
-        "constant": SimpleImputer(strategy="constant", fill_value=options.get("numeric_fill_value", 0)),
-    }
+    strategy, imputation = numeric_imputation_settings(config)
+    seed = options.get("random_state", options.get("encoder_random_state", 42))
     scalers = {
         "none": "passthrough", "standard": StandardScaler(),
         "minmax": MinMaxScaler(), "robust": RobustScaler(),
@@ -212,12 +246,16 @@ def build_preprocessor(config):
             n_splits=5, shuffle=True, random_state=options.get("encoder_random_state", 42)
         )),
     }
-    numeric = Pipeline([("impute", imputers[options["numeric_imputer"]]), ("scale", scalers[options["scaler"]])])
+    # Scalers learn from observed training values and leave NaN for the imputer.
+    # Scaling first gives KNN meaningful distances across numeric columns.
+    numeric = Pipeline([("scale", scalers[options["scaler"]]),
+                        ("impute", _NUMERIC_IMPUTERS[strategy](imputation, seed))])
     categorical = Pipeline([
-        ("impute", SimpleImputer(strategy="most_frequent")),
+        ("impute", SimpleImputer(strategy=imputation.get("categorical_strategy", "most_frequent"),
+                                 keep_empty_features=True)),
         ("encode", encoders[options["encoder"]]),
     ])
-    indicators = [f"{c}_was_missing" for c, plan in options["imputation"].items() if plan.get("indicator")]
+    indicators = [f"{c}_was_missing" for c in missingness_sources(config)]
     return ColumnTransformer([
         ("numeric", numeric, options["numeric_features"]),
         ("categorical", categorical, options["categorical_features"]),

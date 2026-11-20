@@ -22,10 +22,15 @@ preprocessing:
   encoder: target
   encoder_random_state: 42
   scaler: robust
-  numeric_imputer: median
+  random_state: 42
   numeric_features: [age, education_num, capital_gain, capital_loss, hours_per_week, v01, v02, v03, v04, v05, v06, v07, v08, v09, v10, v11, v12, v13, v14, v15, v16, v17, v18]
   categorical_features: [workclass, marital_status, occupation, relationship, native_country, v19, v20, v21, v22, v23, v24, v25]
   imputation:
+    numeric_strategy: median
+    categorical_strategy: most_frequent
+    n_neighbors: 5
+    max_iter: 10
+    n_estimators: 50
     workclass: {strategy: most_frequent, indicator: true}
     occupation: {strategy: most_frequent, indicator: true}
     native_country: {strategy: most_frequent, indicator: false}
@@ -76,6 +81,7 @@ audit:
 output:
   results_dir: results/adult
   scoreboard: results/adult/runs.csv
+  model_path: models/adult_model.joblib
 
 prediction:
   input_path: data/adult_new.csv

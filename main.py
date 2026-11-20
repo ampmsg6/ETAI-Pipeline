@@ -14,6 +14,7 @@ from src.data import load_data
 from src.preprocessing import (
     ENGINEERED_FEATURES, add_engineered_features, configure_engineered_features,
     clean_dataset, drop_duplicate_rows, split_features_target, split_dev_test,
+    numeric_imputation_settings,
 )
 from src.model import build_pipeline, default_model_config, _MODELS
 from src.evaluate import (build_scorers, cross_validate_pipeline, cv_report, oof_classification_report,
@@ -21,6 +22,7 @@ from src.evaluate import (build_scorers, cross_validate_pipeline, cv_report, oof
 from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
 from src.results import comparison_key, save_run, save_scores
 from src.predict import predict_new_data
+from src.artifacts import save_model
 
 
 def load_config(path: str = "config.yaml") -> dict:
@@ -40,6 +42,7 @@ def run_pipeline(config: dict) -> dict:
 def _run_pipeline(config: dict, cache_dir: str) -> dict:
     run = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     model_type = config["model"]["type"]
+    imputer, _ = numeric_imputation_settings(config)
 
     df_raw = load_data(config["data"]["path"])
     df_clean = clean_dataset(df_raw, config)
@@ -67,7 +70,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     selection_config = config.get("feature_selection") or {}
     selection_enabled = selection_config.get("enabled", False)
     print(f"Model: {model_type}   |   selection metric: {selection_metric}   |   "
-          f"{cv_config['n_splits']}-fold CV   |   feature selection: "
+          f"{cv_config['n_splits']}-fold CV   |   imputer: {imputer}   |   feature selection: "
           f"{'min_votes ' + str(selection_config.get('min_votes', 2)) if selection_enabled else 'off'}")
     print(f"Data:  {len(X_dev)} development rows   |   {len(X_test)} test rows locked away (not used)")
 
@@ -134,6 +137,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
 
     report += f"\nOOF source: {'nested CV' if tuning_enabled else 'default CV'}; threshold: 0.5\n"
     pipeline.fit(X_dev, y_dev)
+    model_path = save_model(pipeline, config, run, len(X_dev), len(X_test))
     all_features = pipeline.named_steps["prep"].get_feature_names_out()
     kept_features = (pipeline.named_steps["select"].get_feature_names_out(all_features)
                      if selection_enabled else all_features)
@@ -146,7 +150,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
                                   "kept": np.isin(all_features, kept_features)})
     if selection_enabled:
         feature_table["votes"] = pipeline.named_steps["select"].votes_
-    report += "\n" + refit + "\n"
+    report += "\n" + refit + f"\nSaved model: {model_path}\n"
     prediction_path = None
     if config.get("prediction"):
         prediction_path = predict_new_data(pipeline, config)
@@ -154,6 +158,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
 
     row = {"comparison_key": comparison_key(config), "run": run, "data": config["data"]["path"], "model": model_type, "tuned": tuning_enabled,
            "encoder": config["preprocessing"]["encoder"], "scaler": config["preprocessing"]["scaler"],
+           "imputer": imputer, "model_path": model_path,
            "feature_selection": (f"min_votes {pipeline.named_steps['select'].min_votes}" if selection_enabled else "off"),
            "n_features": len(kept_features), "kept_features": ", ".join(kept_features),
            "params": str(config["model"].get("params")), "tuned_params": str(study.best_params) if tuning_enabled else "",
@@ -170,7 +175,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     runs = save_scores(config.get("output", {}).get("scoreboard", "results/runs.csv"), row)
     same = runs[(runs["comparison_key"] == row["comparison_key"]) & (runs["metric"] == selection_metric)]
     board = (same.sort_values("mean", ascending=False)
-             [["run", "model", "tuned", "feature_selection", "mean", "std", "untuned", "floor"]]
+             [["run", "model", "tuned", "imputer", "feature_selection", "mean", "std", "untuned", "floor"]]
              .rename(columns={"mean": selection_metric})
              .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
     print(f"\nScoreboard (runs with matching data, cleaning, folds and metric; best first)\n{board}")
@@ -187,12 +192,12 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
                   "oof_probability": oof_proba, "prediction": (oof_proba >= 0.5).astype(int)}).to_csv(
         f"{prefix}_oof.csv", index=False,
     )
-    print(f"\n{refit}\nFull report (per-fold tables, tuning, confusion matrix, fairness): {path}")
+    print(f"\n{refit}\nSaved model: {model_path}\nFull report (per-fold tables, tuning, confusion matrix, fairness): {path}")
 
     return {"model": pipeline, "default_scores": fold_scores, "nested_scores": nested_scores,
             "study": study, "report_path": path, "oof_probabilities": oof_proba,
             "oof_predictions": (oof_proba >= 0.5).astype(int), "score_row": row,
-            "kept_features": kept_features.tolist(), "prediction_path": prediction_path}
+            "kept_features": kept_features.tolist(), "prediction_path": prediction_path, "model_path": model_path}
 
 
 def main():
@@ -203,6 +208,7 @@ def main():
     parser.add_argument("--no-tuning", action="store_true")
     parser.add_argument("--features", nargs="*", choices=ENGINEERED_FEATURES)
     parser.add_argument("--selection", choices=("on", "off"))
+    parser.add_argument("--imputer", choices=("median", "mean", "knn", "iterative", "random_forest", "constant"))
     args = parser.parse_args()
     config = load_config(args.config)
     if args.model:
@@ -217,6 +223,9 @@ def main():
         configure_engineered_features(config, args.features)
     if args.selection is not None:
         config.setdefault("feature_selection", {})["enabled"] = args.selection == "on"
+    if args.imputer is not None:
+        config["preprocessing"].pop("numeric_imputer", None)
+        config["preprocessing"].setdefault("imputation", {})["numeric_strategy"] = args.imputer
     return run_pipeline(config)["model"]
 
 

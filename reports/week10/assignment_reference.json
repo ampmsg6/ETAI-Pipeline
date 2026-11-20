@@ -1,0 +1,13 @@
+{
+  "verified_date": "2026-11-20",
+  "public_course_commit": "e398cb88afa4e92bc7d0e8b42443f95ebcb570ca",
+  "required_part": "A1 and A2 plus README",
+  "optional_completed": [
+    "B4"
+  ],
+  "notebooks": {
+    "10_missing_values.ipynb": "3fa6a8704b355147ca3a944c196ac6a7cc4228872a5de1551caebb24ee94a754",
+    "11_deployment.ipynb": "c16a4201997aefce00289b9767a7d43201397127c891c9205ba523606c89c7fd"
+  },
+  "new_people_sha256": "9a963f920bb4ddd2a2aec4c627eb46efd97091e8ea12f724fca116b5d5a65b7f"
+}

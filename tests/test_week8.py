@@ -101,7 +101,8 @@ class Week8Tests(unittest.TestCase):
         config["model"]["params"].update(n_estimators=5, n_jobs=1)
         config["feature_selection"].update(enabled=True, min_votes=2)
         with tempfile.TemporaryDirectory() as folder:
-            config["output"] = {"results_dir": folder, "scoreboard": str(Path(folder) / "runs.csv")}
+            config["output"] = {"results_dir": folder, "scoreboard": str(Path(folder) / "runs.csv"),
+                                "model_path": str(Path(folder) / "model.joblib")}
             with contextlib.redirect_stdout(io.StringIO()):
                 result = run_pipeline(config)
             report = Path(result["report_path"]).read_text(encoding="utf-8")

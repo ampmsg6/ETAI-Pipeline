@@ -1,4 +1,4 @@
-# Week 8. Preprocessing and selection fit within every inner/outer training fold.
+# Week 10. Preprocessing and selection fit within every training fold.
 data:
   path: "data/compas_two_year_recidivism.csv"
   target: "two_year_recid"
@@ -34,11 +34,15 @@ preprocessing:
   engineered_features: [] # Challenge 1: select explicitly or use main.py --features
   encoder: "target"  # onehot, ordinal, count, target
   scaler: "robust" # none, standard, minmax, robust
-  numeric_imputer: "median" # median, knn, constant
-  knn_neighbors: 5
+  random_state: 42
   numeric_features: ["age", "juv_fel_count", "juv_misd_count", "juv_other_count", "priors_count"]
   categorical_features: ["sex", "age_cat", "c_charge_degree"]
   imputation:
+    numeric_strategy: median # median, mean, knn, iterative, random_forest
+    categorical_strategy: most_frequent
+    n_neighbors: 5
+    max_iter: 10
+    n_estimators: 50
     age: {strategy: median, indicator: false}
     juv_fel_count: {strategy: median, indicator: false}
     sex: {strategy: most_frequent, indicator: false}
@@ -137,6 +141,7 @@ tuning:
 output:
   results_dir: "results"
   scoreboard: "results/runs.csv"
+  model_path: "models/model.joblib"
 
 audit:
   negative_description: "(share of people who did NOT reoffend, but were predicted to)"

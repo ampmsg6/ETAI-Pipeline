@@ -1,0 +1,84 @@
+Run: 20261120_143057_727002
+Model: xgboost  params={'n_estimators': 300, 'learning_rate': 0.05, 'max_depth': 4, 'random_state': 42, 'n_jobs': 1}
+Preprocessing: encoder=target  scaler=robust  imputer=random_forest  order=scale -> impute
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Feature selection: VoteSelector, min_votes=2 (before tuning)
+Tuning: off
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'n_estimators': 300, 'learning_rate': 0.05, 'max_depth': 4, 'random_state': 42, 'n_jobs': 1}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.749       0.724 0.025     0.672              0.659      0.674   0.528 0.592    0.552    0.724              0.684
+    2  0.754       0.701 0.053     0.663              0.653      0.647   0.554 0.597    0.570    0.701              0.657
+    3  0.753       0.729 0.024     0.691              0.681      0.685   0.581 0.629    0.599    0.729              0.698
+    4  0.752       0.727 0.025     0.669              0.658      0.660   0.548 0.599    0.567    0.727              0.716
+    5  0.754       0.732 0.021     0.678              0.666      0.676   0.546 0.604    0.568    0.732              0.693
+
+                   mean   std
+accuracy          0.674 0.011
+balanced_accuracy 0.663 0.011
+precision         0.668 0.015
+recall            0.551 0.019
+f1                0.604 0.014
+fbeta_2           0.571 0.017
+roc_auc           0.722 0.013
+average_precision 0.690 0.022
+
+roc_auc: train-validation gap mean = +0.030
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         2458          712
+true 1         1167         1434
+
+              precision    recall  f1-score   support
+
+           0       0.68      0.78      0.72      3170
+           1       0.67      0.55      0.60      2601
+
+    accuracy                           0.67      5771
+   macro avg       0.67      0.66      0.66      5771
+weighted avg       0.67      0.67      0.67      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.30  (n=1420)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.17  (n=1161)
+    Hispanic             FPR = 0.14  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.17  (n=185)
+    unknown              FPR = 0.20  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: default CV; threshold: 0.5
+
+Final model: xgboost refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+Features kept: 3 of 10: numeric__age, numeric__priors_count, categorical__age_cat
+Final min_votes: 2
+Saved model: models\week10\random_forest.joblib
+
+Scoreboard:
+                   run   model  tuned       imputer feature_selection  roc_auc   std  untuned  floor
+20261120_143057_727002 xgboost  False random_forest       min_votes 2    0.722 0.013    0.722  0.500
+20261120_143052_929038 xgboost  False     iterative       min_votes 2    0.721 0.014    0.721  0.500
+20261120_143038_733679 xgboost  False        median       min_votes 2    0.721 0.013    0.721  0.500
+20261120_143047_751067 xgboost  False           knn       min_votes 2    0.719 0.010    0.719  0.500

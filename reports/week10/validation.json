@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-20",
+  "unit_tests_passed": 22,
+  "course_training_data_equal_as_dataframes": true,
+  "imputers": [
+    "median",
+    "knn",
+    "iterative",
+    "random_forest"
+  ],
+  "folds_per_imputer": 5,
+  "development_rows": 5771,
+  "reserved_rows": 1443,
+  "eight_metrics_recomputed_from_oof_on_all_20_folds": true,
+  "reserved_rows_absent_from_oof": true,
+  "six_corrected_tests_recomputed": true,
+  "model_path": "models/model.joblib",
+  "model_sha256": "2f29d4cf6960b30a1950a7aefcfb51fdd646c7dc287a3bfc489d4a193a661e50",
+  "cli_command": "python predict.py data/compas_new_people.csv predictions.csv",
+  "prediction_rows": 20,
+  "input_ids_and_order_preserved": true,
+  "duplicate_facts_receive_equal_predictions": true,
+  "cli_predictions_equal_saved_model": true,
+  "model_file_unchanged_after_inference": true,
+  "missing_column_cli_error_verified": true,
+  "threshold": 0.5,
+  "adult_no_tuning_smoke": {
+    "rows_predicted": 2000,
+    "scores": {
+      "roc_auc": 0.913330147767873,
+      "accuracy": 0.8637500000000001,
+      "f1": 0.6856694932316599
+    },
+    "historical_week9_predictions_unchanged": true,
+    "report_path": "results/week10/adult\\run_20261120_143323_392569.txt"
+  },
+  "unit_test_command": "python -m unittest discover -s tests -v",
+  "resume_reused_all_four_runs": true,
+  "historical_compas_scoreboard_rows_preserved": true,
+  "readme_table_checked_against_csv": true
+}

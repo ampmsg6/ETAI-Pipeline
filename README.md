@@ -6,9 +6,11 @@ Antonio Gonçalves — 20260536
 
 This project predicts whether a person will be rearrested within two years (`two_year_recid`) using the COMPAS case dataset. The model uses age, sex, charge degree, and prior offense counts. It does not use `race` or COMPAS's own risk score as predictors. We keep those fields separately to check false-positive rates by race and compare with COMPAS. The [data dictionary](data/README.md) describes the columns.
 
-The current configuration runs XGBoost and jointly tunes its tree settings, regularisation and, when feature selection is enabled, the number of votes required to keep a feature. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features use median imputation and robust scaling; categorical features use target encoding. Preprocessing and selection are fitted inside every training fold. The settings are in `config.yaml`.
+The current configuration runs XGBoost and jointly tunes its tree settings, regularisation and, when feature selection is enabled, the number of votes required to keep a feature. It reports eight metrics and selects hyperparameters by ROC-AUC. Numeric features are robust-scaled before median imputation; categorical features use target encoding. Preprocessing and selection are fitted inside every training fold. The settings are in `config.yaml`.
 
 Week 9 adds Adult income as a second problem, using `config_adult.yaml`. The default `config.yaml` still runs COMPAS. The Adult configuration and its predictions are described in [Beyond COMPAS](#beyond-compas-option-a--adult-income).
+
+Week 10 makes the numeric imputer configurable, saves the complete fitted pipeline and adds `predict.py` for new CSVs. See [Missing values](#missing-values-week-10) and [Predicting new data](#predicting-new-data).
 
 ## Run the pipeline
 
@@ -26,7 +28,7 @@ On macOS or Linux, activate the environment with `source venv/bin/activate`. The
 python main.py
 ```
 
-The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports default five-fold CV, evaluates tuning with nested CV, and tunes once more on all development rows to choose the final hyperparameters. Classification, confusion matrices and race-group false-positive rates use nested out-of-fold probabilities at a fixed threshold of 0.5 when tuning is enabled. It then refits the selected pipeline on all development rows. The reserved test rows are not scored. A timestamped report, the run configuration, fold tables, OOF probabilities and Optuna trials are saved in `results/`; each execution also adds a row to `results/runs.csv`.
+The command cleans the CSV and removes duplicate labelled rows before making a stratified 80/20 development/test split. It reports default five-fold CV, evaluates tuning with nested CV, and tunes once more on all development rows to choose the final hyperparameters. Classification, confusion matrices and race-group false-positive rates use nested out-of-fold probabilities at a fixed threshold of 0.5 when tuning is enabled. It then refits the selected pipeline on all development rows and saves it to `output.model_path`, with its config and library versions in a JSON file alongside it. The reserved test rows are not scored. A timestamped report, the run configuration, fold tables, OOF probabilities and Optuna trials are saved in `results/`; each execution also adds a row to `results/runs.csv`.
 
 Use short runs while checking a change, or select another model without editing the saved configuration:
 
@@ -40,9 +42,10 @@ python main.py --model naive_bayes --trials 5
 python main.py --model dummy
 python main.py --model xgboost --no-tuning --selection on
 python main.py --model xgboost --trials 5 --selection off
+python main.py --no-tuning --imputer iterative
 ```
 
-`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. `--selection on|off` overrides learned feature selection. CLI overrides apply only to the current run. The full default budget is 30 trials, with five inner and five outer folds. On macOS, XGBoost may also require `brew install libomp`.
+`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. `--selection on|off` overrides learned feature selection. `--imputer` overrides the numeric imputer. CLI overrides apply only to the current run and are saved with its model. The full default budget is 30 trials, with five inner and five outer folds. On macOS, XGBoost may also require `brew install libomp`.
 
 ## Pipeline progress
 
@@ -56,6 +59,66 @@ python main.py --model xgboost --trials 5 --selection off
 | 7 | Boosting and metrics | Gradient Boosting, HistGradientBoosting and Gaussian Naive Bayes; eight metrics, ROC-AUC selection, OOF probabilities and confusion matrices; a nine-model scoreboard with dummy floor, untuned and nested tuned scores. |
 | 8 | XGBoost and feature selection | XGBoost with nine tuned hyperparameters; fold-fitted `VoteSelector` between preprocessing and model; `min_votes` tuned jointly, temporary pipeline cache, selected-feature reports and paired nested-CV comparison with selection on/off. |
 | 9 | Beyond COMPAS: Adult income | Separate Adult config and scoreboard; generic categorical missing-token cleanup and optional reference-score audit; paired tuned runs, selected-feature evidence and one prediction per unlabelled input row. COMPAS metrics and OOF probabilities verified unchanged. |
+| 10 | Missing values and deployment | Five numeric imputers, scaling before imputation, four paired fixed-parameter comparisons and corrected tests; imputer on the scoreboard/report; saved fitted pipeline, config and versions; `predict.py` preserves every input row and validates required columns. |
+
+## Missing values (Week 10)
+
+This follows the local `10_missing_values.ipynb` and `11_deployment.ipynb`, and the professor's [Week 10 pipeline, commit e398cb8](https://github.com/sofiacper/ETAI-Pipeline/tree/e398cb88afa4e92bc7d0e8b42443f95ebcb570ca), published on 17 November 2026. Part A requires four imputer runs and saved-model prediction; B4's column checks, version metadata and row-preservation tests are also implemented. [requirements.md](reports/week10/requirements.md) maps each requirement to its evidence.
+
+Choose `preprocessing.imputation.numeric_strategy`: `median`, `mean`, `knn`, `iterative` or `random_forest`. KNN uses `n_neighbors: 5`; the iterative methods use `max_iter: 10`, and the forest imputer uses `n_estimators: 50` with `min_samples_leaf=5`. `iterative` is one deterministic completion using Bayesian ridge regression; `random_forest` uses the same iterative loop with a forest regressor for each numeric column. It implements the missForest idea without using labels or forest proximities. Neither option is multiple imputation.
+
+The numeric pipeline now runs **scale → impute**: fold-fitted scalers ignore missing entries, so KNN measures distances on comparable scales. All imputers see only the five numeric predictors and learn from each fold's training rows; categorical modes, target encoding and feature selection are also fitted inside that fold. The existing per-column indicator plans remain beside the new settings, retaining `priors_count_was_missing` and `c_charge_degree_was_missing`. Earlier scripts can still explicitly set the legacy `numeric_imputer` override; current configs use the new nested setting. The forest imputer uses one worker per fit because CV already parallelises folds.
+
+### Four required runs: 20 November 2026
+
+```powershell
+python -m scripts.compare_week10
+python -m unittest discover -s tests -v
+```
+
+The comparison fixes XGBoost at 300 trees, learning rate 0.05 and depth 4, with seed 42 and `VoteSelector(min_votes=2)`. It uses the same 5,771 development records and five stratified folds for all four recipes, with tuning off as permitted by A1; 1,443 reserved records are excluded. Results are ordinary CV means ± sample standard deviations, rather than tuned or test-set scores. The dummy ROC-AUC is 0.5000 throughout.
+
+| Numeric imputer | CV ROC-AUC | CV accuracy | CV F1 | Final inputs kept | Total run time |
+|---|---:|---:|---:|---:|---:|
+| **median — retained** | **0.7208 ± 0.0125** | 0.6744 ± 0.0098 | 0.6010 ± 0.0118 | 2 | 9.0 s |
+| knn | 0.7193 ± 0.0104 | 0.6711 ± 0.0103 | 0.6009 ± 0.0143 | 3 | 5.1 s |
+| iterative | 0.7214 ± 0.0136 | 0.6775 ± 0.0118 | 0.6030 ± 0.0131 | 3 | 4.8 s |
+| random_forest | 0.7224 ± 0.0125 | 0.6744 ± 0.0105 | 0.6041 ± 0.0143 | 3 | 28.6 s |
+
+Times include CV, OOF generation, refitting, serialization and report writing on this machine; the first run also starts the worker processes, so they are not isolated imputer benchmarks. The forest imputer reached its configured ten-iteration limit without satisfying the early-stopping tolerance in some fits; these scores describe that finite-budget recipe. The final median model keeps `age` and `priors_count`; the other three final models also keep `age_cat`. Each fold independently fits its own selector.
+
+The corrected paired test uses the five ROC-AUC differences and validation/training ratio 1/4. The table reports **median minus the alternative**; all [six pairwise tests](reports/week10/imputer_comparisons.csv) are exploratory, without a multiple-comparison adjustment.
+
+| Comparison | Mean ROC-AUC difference | Corrected p |
+|---|---:|---:|
+| median − knn | +0.001500 | 0.6446 |
+| median − iterative | −0.000569 | 0.7922 |
+| median − random_forest | −0.001564 | 0.4253 |
+
+I keep median imputation because it is simple and none of the six corrected comparisons establishes a ROC-AUC improvement. The forest imputer has the highest observed mean, but its gain over median is only 0.0016 and it takes more time in this run. These results do not prove equivalence, and apply to this numeric-only, fixed-parameter pipeline.
+
+The [scoreboard](reports/week10/scoreboard.csv), [folds](reports/week10/folds.csv), [eight metrics](reports/week10/metrics.csv), [selected features](reports/week10/features.csv), full text/config reports and [metadata](reports/week10/metadata.json) preserve the evidence. Full models and individual OOF probabilities stay locally in `models/week10/` and `results/week10/`. `--resume` reuses a completed statistical recipe only when its config, data, source and library versions match. The Week 10 training CSV has the same parsed values as this project's existing CSV; raw file hashes differ because of formatting.
+
+The earlier sections and published Week 8–9 results describe their original preprocessing order. Scaling before imputation changes the numeric recipe, so new runs have a new comparison key and their scores should not be treated as a paired improvement over those historical studies. The Adult config now supports the same imputer settings and has a separate `models/adult_model.joblib`; the Week 10 Adult check writes to separate validation paths, preserving the Week 9 submission predictions.
+
+## Predicting new data
+
+Train and save the complete pipeline, then predict without training:
+
+```powershell
+python main.py --no-tuning
+python predict.py data/compas_new_people.csv predictions.csv
+```
+
+`python main.py` also saves the model after its full tuned run. Each run overwrites `output.model_path` (by default `models/model.joblib`), storing the fitted scalers, imputers, encoder, selector and estimator with the temporary cache disabled. `models/model.json` records the training config, run ID, development/reserved row counts, checksum and library versions. Load only model files you trust, using the same library versions; joblib files can execute code when loaded. These model files and the default `predictions.csv` are excluded from Git.
+
+The prediction command locates the artifact through `config.yaml` or `--config`, then uses the **saved training config** for cleaning and feature construction, even if the YAML was edited later. `--model models/week10/knn.joblib` selects an explicit saved artifact. A missing required input column, missing ID, mismatched library version or checksum produces a clear error before prediction.
+
+The required example writes **20 rows**, with columns `id`, `probability` (P(two_year_recid=1)) and `prediction` (1 at probability ≥0.5). Input order, IDs and repeated cases are preserved; missing priors, missing age, the unseen charge `X`, the `Felony` alias and uppercase `MALE` are handled by the saved recipe. Rows 14–15 have identical predictor values and different IDs: both remain and receive the same probability. A reviewable copy is [predictions/compas_new_predictions.csv](predictions/compas_new_predictions.csv).
+
+For Adult, use `python predict.py data/adult_new.csv adult_predictions.csv --config config_adult.yaml` after an Adult training run. Its model and metadata are saved separately from COMPAS.
+
+The **22 automated tests** include all earlier tests and five Week 10 checks for training-only imputation, scaled KNN distances, all-empty numeric columns, legacy settings, serialized predictions, inference without refitting, version checks and missing-column errors. `python -m scripts.validate_week10` independently recomputes all eight metrics from OOF probabilities on the 20 folds and all six corrected tests, exercises the real prediction CLI and checks Adult compatibility. Its results are recorded in [validation.json](reports/week10/validation.json); none of these checks evaluates reserved test rows. B1–B3 are optional experiments and are outside this submission.
 
 ## Beyond COMPAS (option A — Adult income)
 
