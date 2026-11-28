@@ -1,0 +1,36 @@
+{
+  "verified_date": "2026-11-28",
+  "development_rows": 5771,
+  "reserved_rows": 1443,
+  "reserved_test_evaluated": false,
+  "metrics_recomputed": 120,
+  "independent_fold_refits_matching_oof": 15,
+  "corrected_comparisons_recomputed": 3,
+  "anomaly_rate_groups_recomputed": 12,
+  "lof_k_checked_on_all_training_folds": true,
+  "predictions": {
+    "none": {
+      "rows": 20,
+      "ids_and_order_preserved": true,
+      "no_refit": true
+    },
+    "isolation_forest": {
+      "rows": 20,
+      "ids_and_order_preserved": true,
+      "no_refit": true
+    },
+    "lof": {
+      "rows": 20,
+      "ids_and_order_preserved": true,
+      "no_refit": true
+    }
+  },
+  "default_cli_prediction_rows": 20,
+  "week10_baseline_metrics_unchanged": true,
+  "automated_tests": {
+    "command": "python -m unittest discover -s tests -v",
+    "tests": 27,
+    "result": "passed"
+  },
+  "course_training_data_parsed_equal": true
+}

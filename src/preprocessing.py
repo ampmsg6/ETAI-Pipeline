@@ -6,7 +6,9 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer, KNNImputer, SimpleImputer
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import IsolationForest, RandomForestRegressor
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.utils.validation import check_is_fitted, validate_data
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
@@ -261,3 +263,47 @@ def build_preprocessor(config):
         ("categorical", categorical, options["categorical_features"]),
         ("indicators", "passthrough", indicators),
     ])
+
+
+class AnomalyScore(TransformerMixin, BaseEstimator):
+    """Append a training-fitted anomaly score; higher means more unusual.
+
+    LOF uses proper training scores in fit_transform and novelty scores for
+    validation or new rows. Neither method drops rows or uses the target.
+    """
+
+    def __init__(self, method="isolation_forest", n_neighbors=20, random_state=None):
+        self.method = method
+        self.n_neighbors = n_neighbors
+        self.random_state = random_state
+
+    def fit(self, X, y=None):
+        values = validate_data(self, X, dtype=float)
+        if self.method == "isolation_forest":
+            self.detector_ = IsolationForest(random_state=self.random_state, n_jobs=1)
+        elif self.method == "lof":
+            self.detector_ = LocalOutlierFactor(n_neighbors=self.n_neighbors, novelty=True, n_jobs=1)
+        else:
+            raise ValueError(f"Unknown anomaly method: {self.method}. Options: isolation_forest, lof")
+        self.detector_.fit(values)
+        return self
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        if self.method == "lof":
+            return np.column_stack([X, -self.detector_.negative_outlier_factor_])
+        return self.transform(X)
+
+    def transform(self, X):
+        check_is_fitted(self, "detector_")
+        values = validate_data(self, X, reset=False, dtype=float)
+        return np.column_stack([values, -self.detector_.score_samples(values)])
+
+    def get_feature_names_out(self, input_features=None):
+        check_is_fitted(self, "detector_")
+        if input_features is None:
+            input_features = getattr(self, "feature_names_in_", [f"x{i}" for i in range(self.n_features_in_)])
+        names = np.asarray(input_features, dtype=object)
+        if names.ndim != 1 or len(names) != self.n_features_in_:
+            raise ValueError("input_features must match the fitted number of features")
+        return np.append(names, "anomaly_score")

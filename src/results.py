@@ -45,6 +45,7 @@ def save_run(results_dir: str, config: dict, report_text: str, run: str | None =
         f"CV: {cv['n_splits']} stratified folds  shuffle={cv.get('shuffle', True)}  "
         f"random_state={cv.get('random_state')}\n"
         f"Metrics: {cv['metrics']}  selection metric: {cv['selection_metric']}\n"
+        f"Anomaly method: {(config.get('anomaly') or {}).get('method', 'none')}\n"
         f"Feature selection: {selection_line}\n"
         f"Tuning: {tuning_line}\n"
         f"Locked test set: size={config['test_set']['size']}  "

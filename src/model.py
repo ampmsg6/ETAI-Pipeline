@@ -15,7 +15,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.validation import check_is_fitted, validate_data
 from xgboost import XGBClassifier
 
-from src.preprocessing import build_preprocessor
+from src.preprocessing import AnomalyScore, build_preprocessor
 
 
 def adaboost(max_depth: int = 1, **params):
@@ -125,14 +125,20 @@ class VoteSelector(SelectorMixin, BaseEstimator):
 
 
 def build_pipeline(config: dict, model_config: dict | None = None,
-                   selection_config: dict | None = None, memory=None) -> Pipeline:
-    """Keep the full-config API; fit preprocessing and selection inside every fold.
+                   selection_config: dict | None = None, memory=None,
+                   anomaly_config: dict | None = None) -> Pipeline:
+    """Fit preprocessing, anomaly scoring and selection inside every fold.
 
     memory caches fitted steps only for identical training data, labels and
-    parameters. Explicit selection_config overrides config['feature_selection'].
+    parameters. Explicit selection_config and anomaly_config override the config.
     """
     selection = config.get("feature_selection", {}) if selection_config is None else selection_config
+    anomaly = (config.get("anomaly") or {}) if anomaly_config is None else anomaly_config
     steps = [("prep", build_preprocessor(config))]
+    if anomaly.get("method", "none") != "none":
+        steps.append(("anomaly", AnomalyScore(method=anomaly["method"],
+                                             n_neighbors=anomaly.get("n_neighbors", 20),
+                                             random_state=anomaly.get("random_state"))))
     if selection.get("enabled", False):
         steps.append(("select", VoteSelector(selection.get("min_votes", 2),
                                              selection.get("random_state", 42))))

@@ -1,0 +1,7 @@
+scope,fold,training_rows,largest_identical_group,n_neighbors,k_larger_than_group
+training_fold,1,4616,11,20,True
+training_fold,2,4617,10,20,True
+training_fold,3,4617,10,20,True
+training_fold,4,4617,11,20,True
+training_fold,5,4617,9,20,True
+development_fit,0,5771,14,20,True

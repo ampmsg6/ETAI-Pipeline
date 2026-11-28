@@ -1,0 +1,52 @@
+{
+  "course_reference": "sofiacper/ETAI-Pipeline@bcd7b5386d3a5b6130432c560862b60085425ede",
+  "selection_metric": "roc_auc",
+  "tuning_enabled": false,
+  "model": {
+    "type": "xgboost",
+    "params": {
+      "n_estimators": 300,
+      "learning_rate": 0.05,
+      "max_depth": 4,
+      "random_state": 42,
+      "n_jobs": 1
+    }
+  },
+  "feature_selection": {
+    "enabled": true,
+    "min_votes": 2,
+    "random_state": 42,
+    "search_space": {
+      "select__min_votes": {
+        "type": "int",
+        "low": 1,
+        "high": 3
+      }
+    }
+  },
+  "folds": 5,
+  "cv_seed": 42,
+  "reserved_test_evaluated": false,
+  "test_train_ratio": 0.25,
+  "comparison_key": "34d088d33f5a7967b5455b9fe9fd546e52a6f9d88407f6ebf93729f43d2391eb",
+  "multiple_comparisons": "three exploratory pairwise tests; unadjusted p-values",
+  "versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "optuna": "5.0.0",
+    "PyYAML": "6.0.3",
+    "xgboost": "3.4.1",
+    "joblib": "1.6.0"
+  },
+  "data_sha256": "6a747fd4a04d545976510401695587984a06662ea319b614fbf079b61201161a",
+  "notebook_sha256": {
+    "12_outliers.ipynb": "9ecd70d83d1d38ed749427a5aa9383ada11c4a96398dbb3ba5ea1d924f0b309d"
+  },
+  "runs": {
+    "none": "20261128_143604_510406",
+    "isolation_forest": "20261128_143610_328927",
+    "lof": "20261128_143615_756589"
+  }
+}

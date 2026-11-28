@@ -1,0 +1,15 @@
+{
+  "verified_date": "2026-11-28",
+  "public_course_commit": "bcd7b5386d3a5b6130432c560862b60085425ede",
+  "public_readme_blob": "6a9d21222d673ca65c8daa407e96cd6e16a66acb",
+  "required_steps": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "optional_challenges": "not included: training-only removal, quantile clipping, tuning k",
+  "notebook_sha256": "9ecd70d83d1d38ed749427a5aa9383ada11c4a96398dbb3ba5ea1d924f0b309d",
+  "course_training_data_parsed_equal": true,
+  "prediction_recorded_before_experiments": true
+}

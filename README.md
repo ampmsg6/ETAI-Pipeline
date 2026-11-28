@@ -12,6 +12,8 @@ Week 9 adds Adult income as a second problem, using `config_adult.yaml`. The def
 
 Week 10 makes the numeric imputer configurable, saves the complete fitted pipeline and adds `predict.py` for new CSVs. See [Missing values](#missing-values-week-10) and [Predicting new data](#predicting-new-data).
 
+Week 11 adds optional Isolation Forest and LOF anomaly scores, learned within each training fold. The default remains `anomaly.method: none`, based on the paired comparison in [Anomaly scores](#anomaly-scores-week-11).
+
 ## Run the pipeline
 
 From the project root, create an environment and install the dependencies:
@@ -43,9 +45,12 @@ python main.py --model dummy
 python main.py --model xgboost --no-tuning --selection on
 python main.py --model xgboost --trials 5 --selection off
 python main.py --no-tuning --imputer iterative
+python main.py --no-tuning --anomaly none
+python main.py --no-tuning --anomaly isolation_forest
+python main.py --no-tuning --anomaly lof
 ```
 
-`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. `--selection on|off` overrides learned feature selection. `--imputer` overrides the numeric imputer. CLI overrides apply only to the current run and are saved with its model. The full default budget is 30 trials, with five inner and five outer folds. On macOS, XGBoost may also require `brew install libomp`.
+`--model` selects the notebook's default parameters for that model. Without it, `main.py` uses the configured model and parameters. `--features` selects an explicit list of engineered features; an empty list selects the baseline. `--selection on|off` overrides learned feature selection. `--imputer` overrides the numeric imputer. `--anomaly none|isolation_forest|lof` overrides the anomaly method. CLI overrides apply only to the current run and are saved with its model. The full default budget is 30 trials, with five inner and five outer folds. On macOS, XGBoost may also require `brew install libomp`.
 
 ## Pipeline progress
 
@@ -60,6 +65,76 @@ python main.py --no-tuning --imputer iterative
 | 8 | XGBoost and feature selection | XGBoost with nine tuned hyperparameters; fold-fitted `VoteSelector` between preprocessing and model; `min_votes` tuned jointly, temporary pipeline cache, selected-feature reports and paired nested-CV comparison with selection on/off. |
 | 9 | Beyond COMPAS: Adult income | Separate Adult config and scoreboard; generic categorical missing-token cleanup and optional reference-score audit; paired tuned runs, selected-feature evidence and one prediction per unlabelled input row. COMPAS metrics and OOF probabilities verified unchanged. |
 | 10 | Missing values and deployment | Five numeric imputers, scaling before imputation, four paired fixed-parameter comparisons and corrected tests; imputer on the scoreboard/report; saved fitted pipeline, config and versions; `predict.py` preserves every input row and validates required columns. |
+| 11 | Outliers and anomaly detection | Fold-fitted Isolation Forest or LOF score after preprocessing and before feature selection; correct LOF training/novelty scoring, three paired comparisons, top-5% rearrest rates, anomaly on the scoreboard/report and saved-model prediction checks. |
+
+## Anomaly scores (Week 11)
+
+### Prediction recorded before the experiments: 28 November 2026
+
+I expect little or no consistent ROC-AUC improvement from adding an anomaly score. XGBoost already models combinations of age and prior counts, while unusual combinations need not mean rearrest: rearrest is common enough that it cannot be identified with a small set of outliers. Isolation Forest might add a useful summary of rare combinations; LOF may instead highlight sparse neighbourhoods near repeated records. I will compare `none`, `isolation_forest` and `lof` with identical development folds, fixed model settings and tuning disabled, then compare the rearrest rate of the top 5% by anomaly score with the remaining development records.
+
+### Implementation and reproduction
+
+The local `12_outliers.ipynb` (required steps in cell 30) and the professor's [Week 11 pipeline, commit bcd7b53](https://github.com/sofiacper/ETAI-Pipeline/tree/bcd7b5386d3a5b6130432c560862b60085425ede) define the work. [requirements.md](reports/week11/requirements.md) maps each requirement to the implementation and evidence.
+
+`AnomalyScore` in `src/preprocessing.py` appends one numeric column, `anomaly_score`, with larger values meaning more unusual combinations. The optional step runs as `prep -> anomaly -> select -> model`, after imputation, scaling and encoding. It learns only from the training portion of each fold and is also saved inside the fitted pipeline. For LOF, `fit_transform()` uses `-negative_outlier_factor_` on training rows; `transform()` uses `-score_samples()` with `novelty=True` on validation and new rows. Isolation Forest uses `-score_samples()` in both cases. Neither detector is given the target or removes rows; the existing target encoder is fitted within the training fold.
+
+The `anomaly` section in both configs provides `method`, `n_neighbors: 20` and `random_state: 42`. Missing sections in old configs behave like `none`. The anomaly method is recorded in the console, scoreboard, text report and saved run configuration; feature names pass through the anomaly step before selection. No new package is needed, and `predict.py` loads the fitted detector with the pipeline.
+
+```powershell
+python -m scripts.compare_week11
+python main.py --no-tuning --anomaly none
+python predict.py data/compas_new_people.csv predictions.csv
+python -m scripts.validate_week11
+python -m unittest discover -s tests -v
+```
+
+`compare_week11` runs the same `run_pipeline()` entry point as `main.py` for the three anomaly methods. `--resume` reuses a recipe only when its config, data, source and library versions match. Reports go to `reports/week11/`, with full models and individual OOF probabilities kept locally in `models/week11/` and `results/week11/`. The final default CLI run saves the retained `none` recipe to `models/model.joblib` and records it in `results/runs.csv`.
+
+### Three required runs: 28 November 2026
+
+All three recipes use the same 5,771 development records, five stratified folds and seed 42. XGBoost stays at 300 trees, learning rate 0.05 and depth 4; median imputation, target encoding, robust scaling and `VoteSelector(min_votes=2)` are fixed. Tuning is disabled as the notebook allows. The 1,443 reserved records are excluded from fitting and evaluation; these are ordinary development CV estimates, not nested tuning estimates. The dummy ROC-AUC is 0.5000 for each recipe.
+
+| Anomaly method | CV ROC-AUC, mean +/- std | CV accuracy | CV F1 | Final features kept |
+|---|---:|---:|---:|---:|
+| **none, retained** | **0.7208 +/- 0.0125** | 0.6744 | 0.6010 | 2 |
+| isolation_forest | 0.7163 +/- 0.0114 | 0.6664 | 0.5948 | 2 |
+| lof | 0.7150 +/- 0.0146 | 0.6734 | 0.6003 | 2 |
+
+The corrected paired test uses the five ROC-AUC differences and validation/training ratio 1/4. Positive differences below favour the first recipe. These are three exploratory pairwise tests with unadjusted p-values; they do not establish family-wide significance.
+
+| Comparison | Mean ROC-AUC difference | First recipe wins | Corrected p |
+|---|---:|---:|---:|
+| none - isolation_forest | +0.004550 | 5/5 | 0.0418 |
+| none - lof | +0.005818 | 5/5 | 0.0260 |
+| isolation_forest - lof | +0.001268 | 3/5 | 0.6617 |
+
+My prediction of little or no gain was supported: both added-score recipes had lower ROC-AUC in all five folds, so I keep `none`. A higher rearrest rate among unusual records does not ensure useful information beyond age and prior counts. The detector compresses existing predictors into one number, and the observed results give no reason to add it to this fixed recipe. They do not determine what would happen with other classifiers, tuned settings or datasets.
+
+The final refits keep `age` and `priors_count` for all three recipes and discard both anomaly scores. That does not mean the scores were unused during CV: [fold_features.csv](reports/week11/fold_features.csv) shows Isolation Forest's score kept in all five fold models and LOF's in four, while each fold independently learns selection. The baseline also keeps `age_cat` in fold 2; the LOF recipe keeps it in fold 5. Final-refit feature lists cannot explain fold performance on their own.
+
+### Are the people who are rearrested the outliers?
+
+The overall development rearrest rate is **2,601/5,771 = 45.07%**. The main descriptive comparison below scores each row using a detector fitted on the other folds. It ranks scores within each validation fold and takes `ceil(0.05 * fold_size)` rows, with ties resolved in input order without consulting labels. This selects 290 records across the five folds; the remaining group contains 5,481.
+
+| Held-out anomaly score | Top 5%: rearrests / people | Top 5% rearrest rate | Remaining: rearrests / people | Remaining rearrest rate |
+|---|---:|---:|---:|---:|
+| Isolation Forest | 170/290 | 58.62% | 2,431/5,481 | 44.35% |
+| LOF | 166/290 | 57.24% | 2,435/5,481 | 44.43% |
+
+Unusual combinations are associated with a higher observed rearrest rate here, but they identify only 170/2,601 (6.54%) and 166/2,601 (6.38%) of all rearrests. Many flagged people are not rearrested, and most rearrests occur outside this small group. Anomaly status therefore does not stand in for the outcome.
+
+For comparison with the notebook's descriptive full-development fit, Isolation Forest's 289 highest-scoring training rows have 171 rearrests (59.17%), versus 44.33% in the rest; LOF has 151/289 (52.25%), versus 44.69%. These training-fit summaries use proper LOF training scores and are kept separate from the held-out summaries and classifier evaluation. [anomaly_rates.csv](reports/week11/anomaly_rates.csv) records all counts and rates.
+
+LOF's `k=20` exceeds the largest identical-row group in every fold's preprocessed training data: the maxima are 11, 10, 10, 11 and 9; the full-development maximum is 14. [lof_neighbourhoods.csv](reports/week11/lof_neighbourhoods.csv) records the check. This avoids the zero-distance duplicate-group issue highlighted in the notebook; k was not tuned.
+
+### Prediction and validation
+
+The real `predict.py` CLI returned **20 rows for each saved method**, with input IDs, order and repeated records preserved. Reviewable outputs are [none.csv](predictions/week11/none.csv), [isolation_forest.csv](predictions/week11/isolation_forest.csv) and [lof.csv](predictions/week11/lof.csv). The standard command using the default model also wrote 20 rows to `predictions.csv` without fitting.
+
+All **27 automated tests** passed, including five Week 11 tests for detector scores, LOF's training/new-row distinction, the estimator contract, step order, fold isolation and serialized prediction without refitting. [validation.json](reports/week11/validation.json) records independent recomputation of all 120 metric values, three corrected tests and 12 anomaly-rate groups; 15 independent fold refits reproduce the saved OOF probabilities. The `none` recipe reproduces all eight Week 10 median metrics in all five folds. The supplied Week 11 training data has the same parsed values as the project's data.
+
+The [scoreboard](reports/week11/scoreboard.csv), [folds](reports/week11/folds.csv), [metrics](reports/week11/metrics.csv), [features](reports/week11/features.csv), text reports/configs and [metadata](reports/week11/metadata.json) preserve the results. Training-only anomaly removal, quantile clipping and tuning k are optional challenges and are outside this delivery.
 
 ## Missing values (Week 10)
 
@@ -118,7 +193,7 @@ The required example writes **20 rows**, with columns `id`, `probability` (P(two
 
 For Adult, use `python predict.py data/adult_new.csv adult_predictions.csv --config config_adult.yaml` after an Adult training run. Its model and metadata are saved separately from COMPAS.
 
-The **22 automated tests** include all earlier tests and five Week 10 checks for training-only imputation, scaled KNN distances, all-empty numeric columns, legacy settings, serialized predictions, inference without refitting, version checks and missing-column errors. `python -m scripts.validate_week10` independently recomputes all eight metrics from OOF probabilities on the 20 folds and all six corrected tests, exercises the real prediction CLI and checks Adult compatibility. Its results are recorded in [validation.json](reports/week10/validation.json); none of these checks evaluates reserved test rows. B1–B3 are optional experiments and are outside this submission.
+The Week 10 delivery's **22 automated tests** include all earlier tests and five Week 10 checks for training-only imputation, scaled KNN distances, all-empty numeric columns, legacy settings, serialized predictions, inference without refitting, version checks and missing-column errors. `python -m scripts.validate_week10` independently recomputes all eight metrics from OOF probabilities on the 20 folds and all six corrected tests, exercises the real prediction CLI and checks Adult compatibility. Its results are recorded in [validation.json](reports/week10/validation.json); none of these checks evaluates reserved test rows. B1–B3 are optional experiments and are outside this submission.
 
 ## Beyond COMPAS (option A — Adult income)
 

@@ -1,4 +1,4 @@
-# Week 10. Preprocessing and selection fit within every training fold.
+# Week 11. Preprocessing, anomaly scoring and selection fit within each training fold.
 data:
   path: "data/compas_two_year_recidivism.csv"
   target: "two_year_recid"
@@ -81,6 +81,11 @@ model:
   # xgboost: use scale_pos_weight for class weighting; not class_weight.
   # class_weight: balanced is also supported by logistic regression, trees and forests;
   # weighting changes the precision/recall and false-positive tradeoff.
+
+anomaly:
+  method: "none" # none, isolation_forest, lof
+  n_neighbors: 20 # LOF: choose more neighbours than the largest identical-row group
+  random_state: 42
 
 feature_selection:
   enabled: true

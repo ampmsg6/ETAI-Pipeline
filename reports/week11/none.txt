@@ -1,0 +1,82 @@
+Run: 20261128_143604_510406
+Model: xgboost  params={'n_estimators': 300, 'learning_rate': 0.05, 'max_depth': 4, 'random_state': 42, 'n_jobs': 1}
+Preprocessing: encoder=target  scaler=robust  imputer=median  order=scale -> impute
+CV: 5 stratified folds  shuffle=True  random_state=42
+Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']  selection metric: roc_auc
+Anomaly method: none
+Feature selection: VoteSelector, min_votes=2 (before tuning)
+Tuning: off
+Locked test set: size=0.2  random_state=42  (not evaluated)
+============================================================
+
+Hyperparameters from config.yaml: {'n_estimators': 300, 'learning_rate': 0.05, 'max_depth': 4, 'random_state': 42, 'n_jobs': 1}
+
+Cross-validation (5 stratified folds, selection metric: roc_auc)
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.749       0.718 0.031     0.667              0.654      0.665   0.526 0.587    0.549    0.718              0.676
+    2  0.749       0.701 0.049     0.663              0.655      0.641   0.571 0.604    0.584    0.701              0.652
+    3  0.747       0.727 0.021     0.687              0.676      0.687   0.562 0.618    0.583    0.727              0.699
+    4  0.746       0.725 0.021     0.676              0.662      0.683   0.523 0.593    0.549    0.725              0.713
+    5  0.747       0.733 0.014     0.679              0.667      0.682   0.540 0.603    0.564    0.733              0.692
+
+                   mean   std
+accuracy          0.674 0.010
+balanced_accuracy 0.663 0.009
+precision         0.672 0.019
+recall            0.544 0.021
+f1                0.601 0.012
+fbeta_2           0.566 0.017
+roc_auc           0.721 0.013
+average_precision 0.686 0.023
+
+roc_auc: train-validation gap mean = +0.027
+
+No-model floor (dummy, same folds): roc_auc = 0.500
+
+Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0         2476          694
+true 1         1185         1416
+
+              precision    recall  f1-score   support
+
+           0       0.68      0.78      0.72      3170
+           1       0.67      0.54      0.60      2601
+
+    accuracy                           0.67      5771
+   macro avg       0.67      0.66      0.66      5771
+weighted avg       0.67      0.67      0.67      5771
+
+False positive rate by race (development set, out-of-fold; threshold 0.5)
+(share of people who did NOT reoffend, but were predicted to)
+
+  Our model:
+    African-American     FPR = 0.29  (n=1420)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.16  (n=1161)
+    Hispanic             FPR = 0.15  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.17  (n=185)
+    unknown              FPR = 0.20  (n=66)
+
+  COMPAS's own score:
+    African-American     FPR = 0.45  (n=1416)
+    Asian                FPR = 0.10  (n=21)
+    Caucasian            FPR = 0.23  (n=1160)
+    Hispanic             FPR = 0.23  (n=311)
+    Native American      FPR = 0.17  (n=6)
+    Other                FPR = 0.14  (n=185)
+    unknown              FPR = 0.33  (n=66)
+
+OOF source: default CV; threshold: 0.5
+
+Final model: xgboost refit on all 5771 development rows. Reserved test: 1443 rows, not evaluated.
+Features kept: 2 of 10: numeric__age, numeric__priors_count
+Final min_votes: 2
+Saved model: models\week11\none.joblib
+
+Scoreboard:
+                   run   model  tuned imputer anomaly feature_selection  roc_auc   std  untuned  floor
+20261128_143604_510406 xgboost  False  median    none       min_votes 2    0.721 0.013    0.721  0.500

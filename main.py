@@ -43,6 +43,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     run = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     model_type = config["model"]["type"]
     imputer, _ = numeric_imputation_settings(config)
+    anomaly = (config.get("anomaly") or {}).get("method", "none")
 
     df_raw = load_data(config["data"]["path"])
     df_clean = clean_dataset(df_raw, config)
@@ -70,12 +71,13 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     selection_config = config.get("feature_selection") or {}
     selection_enabled = selection_config.get("enabled", False)
     print(f"Model: {model_type}   |   selection metric: {selection_metric}   |   "
-          f"{cv_config['n_splits']}-fold CV   |   imputer: {imputer}   |   feature selection: "
+          f"{cv_config['n_splits']}-fold CV   |   imputer: {imputer}   |   anomaly: {anomaly}   |   feature selection: "
           f"{'min_votes ' + str(selection_config.get('min_votes', 2)) if selection_enabled else 'off'}")
     print(f"Data:  {len(X_dev)} development rows   |   {len(X_test)} test rows locked away (not used)")
 
-    pipeline = build_pipeline(config, selection_config=selection_config, memory=cache_dir)
-    floor_pipeline = build_pipeline(config, default_model_config("dummy"), selection_config={})
+    pipeline = build_pipeline(config, selection_config=selection_config, memory=cache_dir,
+                              anomaly_config=config.get("anomaly"))
+    floor_pipeline = build_pipeline(config, default_model_config("dummy"), selection_config={}, anomaly_config={})
     floor_scores, _ = cross_validate_pipeline(floor_pipeline, X_dev, y_dev, cv,
                                               {selection_metric: scorers[selection_metric]}, selection_metric, n_jobs)
     fold_scores, oof_proba = cross_validate_pipeline(pipeline, X_dev, y_dev, cv, scorers, selection_metric, n_jobs)
@@ -139,6 +141,8 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     pipeline.fit(X_dev, y_dev)
     model_path = save_model(pipeline, config, run, len(X_dev), len(X_test))
     all_features = pipeline.named_steps["prep"].get_feature_names_out()
+    if "anomaly" in pipeline.named_steps:
+        all_features = pipeline.named_steps["anomaly"].get_feature_names_out(all_features)
     kept_features = (pipeline.named_steps["select"].get_feature_names_out(all_features)
                      if selection_enabled else all_features)
     refit = (f"Final model: {model_type} refit on all {len(X_dev)} development rows. "
@@ -158,7 +162,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
 
     row = {"comparison_key": comparison_key(config), "run": run, "data": config["data"]["path"], "model": model_type, "tuned": tuning_enabled,
            "encoder": config["preprocessing"]["encoder"], "scaler": config["preprocessing"]["scaler"],
-           "imputer": imputer, "model_path": model_path,
+           "imputer": imputer, "anomaly": anomaly, "model_path": model_path,
            "feature_selection": (f"min_votes {pipeline.named_steps['select'].min_votes}" if selection_enabled else "off"),
            "n_features": len(kept_features), "kept_features": ", ".join(kept_features),
            "params": str(config["model"].get("params")), "tuned_params": str(study.best_params) if tuning_enabled else "",
@@ -175,7 +179,7 @@ def _run_pipeline(config: dict, cache_dir: str) -> dict:
     runs = save_scores(config.get("output", {}).get("scoreboard", "results/runs.csv"), row)
     same = runs[(runs["comparison_key"] == row["comparison_key"]) & (runs["metric"] == selection_metric)]
     board = (same.sort_values("mean", ascending=False)
-             [["run", "model", "tuned", "imputer", "feature_selection", "mean", "std", "untuned", "floor"]]
+             [["run", "model", "tuned", "imputer", "anomaly", "feature_selection", "mean", "std", "untuned", "floor"]]
              .rename(columns={"mean": selection_metric})
              .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
     print(f"\nScoreboard (runs with matching data, cleaning, folds and metric; best first)\n{board}")
@@ -209,6 +213,7 @@ def main():
     parser.add_argument("--features", nargs="*", choices=ENGINEERED_FEATURES)
     parser.add_argument("--selection", choices=("on", "off"))
     parser.add_argument("--imputer", choices=("median", "mean", "knn", "iterative", "random_forest", "constant"))
+    parser.add_argument("--anomaly", choices=("none", "isolation_forest", "lof"))
     args = parser.parse_args()
     config = load_config(args.config)
     if args.model:
@@ -226,6 +231,8 @@ def main():
     if args.imputer is not None:
         config["preprocessing"].pop("numeric_imputer", None)
         config["preprocessing"].setdefault("imputation", {})["numeric_strategy"] = args.imputer
+    if args.anomaly is not None:
+        config.setdefault("anomaly", {})["method"] = args.anomaly
     return run_pipeline(config)["model"]
 
 
